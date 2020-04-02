@@ -1,5 +1,5 @@
 /**
- * Copyright 2016 Nikita Koksharov
+ * Copyright (c) 2013-2020 Nikita Koksharov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,18 +15,11 @@
  */
 package org.redisson.api;
 
-//import org.redisson.core.RMap;
-
 /**
  *
  * @author Rui Gu (https://github.com/jackygurui)
  */
-public interface RLiveObject {
-//
-//    /**
-//     * @return the liveObjectLiveMap
-//     */
-//    public RMap getLiveObjectLiveMap();
+public interface RLiveObject extends RExpirable {
 
     /**
      * Returns the value of the field that has the RId annotation.
@@ -41,26 +34,8 @@ public interface RLiveObject {
      * naming scheme specified in the REntity annotation of the instance class.
      * 
      * @param liveObjectId the liveObjectId to set
-     * @see org.redisson.core.RMap
+     * @see org.redisson.api.RMap
      */
     void setLiveObjectId(Object liveObjectId);
 
-    /**
-     * Returns true if this object holds no other values apart from the field
-     * annotated with RId. This involves in invoking the isExist() method on the
-     * underlying RMap. Since the field with RId annotation is encoded in the
-     * name of the underlying RMap, so to ensure the map exist in redis, set a 
-     * non null value to any of the other fields.
-     * 
-     * @return 
-     * @see org.redisson.core.RMap
-     */
-    boolean isExists();
-    
-    /**
-     * Deletes the underlying RMap.
-     * @return 
-     */
-    boolean delete();
-    
 }

@@ -1,5 +1,5 @@
 /**
- * Copyright 2016 Nikita Koksharov
+ * Copyright (c) 2013-2020 Nikita Koksharov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,16 +21,19 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.redisson.api.RedissonNodeInitializer;
+import org.springframework.beans.factory.BeanFactory;
 
 /**
+ * Redisson Node configuration
  * 
  * @author Nikita Koksharov
  *
  */
 public class RedissonNodeConfig extends Config {
     
+    private int mapReduceWorkers = 0;
     private RedissonNodeInitializer redissonNodeInitializer;
-    private int executorServiceThreads = 0;
+    private BeanFactory beanFactory;
     private Map<String, Integer> executorServiceWorkers = new HashMap<String, Integer>();
     
     public RedissonNodeConfig() {
@@ -43,36 +46,38 @@ public class RedissonNodeConfig extends Config {
     
     public RedissonNodeConfig(RedissonNodeConfig oldConf) {
         super(oldConf);
-        this.executorServiceThreads = oldConf.executorServiceThreads;
         this.executorServiceWorkers = new HashMap<String, Integer>(oldConf.executorServiceWorkers);
         this.redissonNodeInitializer = oldConf.redissonNodeInitializer;
+        this.mapReduceWorkers = oldConf.mapReduceWorkers;
+        this.beanFactory = oldConf.beanFactory;
     }
-
+    
     /**
-     * Executor service threads amount shared between all workers.
+     * MapReduce workers amount. 
      * <p>
-     * <code>0</code> - create separate thread executor with <code>(current_processors_amount * 2)</code> threads
+     * <code>0 = current_processors_amount</code>
      * <p>
-     * <code>n</code> - create separate thread executor with <code>(n)</code> threads
-     * <p>
-     * Default is <code>0</code>.
+     * <code>-1 = disable MapReduce workers</code>
      * 
-     * @param executorThreads
-     * @return
+     * <p>
+     * Default is <code>0</code>
+     * 
+     * @param mapReduceWorkers workers for MapReduce
+     * @return config
      */
-    public RedissonNodeConfig setExecutorServiceThreads(int executorThreads) {
-        this.executorServiceThreads = executorThreads;
+    public RedissonNodeConfig setMapReduceWorkers(int mapReduceWorkers) {
+        this.mapReduceWorkers = mapReduceWorkers;
         return this;
     }
-    public int getExecutorServiceThreads() {
-        return executorServiceThreads;
+    public int getMapReduceWorkers() {
+        return mapReduceWorkers;
     }
     
     /**
      * Executor service workers amount per service name 
      * 
-     * @param workers
-     * @return
+     * @param workers mapping
+     * @return config
      */
     public RedissonNodeConfig setExecutorServiceWorkers(Map<String, Integer> workers) {
         this.executorServiceWorkers = workers;
@@ -82,27 +87,40 @@ public class RedissonNodeConfig extends Config {
         return executorServiceWorkers;
     }
     
-    public RedissonNodeInitializer getRedissonNodeInitializer() {
-        return redissonNodeInitializer;
-    }
-
     /**
      * Redisson node initializer
      * 
-     * @param redissonNodeInitializer
-     * @return
+     * @param redissonNodeInitializer object
+     * @return config
      */
     public RedissonNodeConfig setRedissonNodeInitializer(RedissonNodeInitializer redissonNodeInitializer) {
         this.redissonNodeInitializer = redissonNodeInitializer;
         return this;
     }
+    public RedissonNodeInitializer getRedissonNodeInitializer() {
+        return redissonNodeInitializer;
+    }
+
+    public BeanFactory getBeanFactory() {
+        return beanFactory;
+    }
+
+    /**
+     * Defines Spring Bean Factory instance to execute tasks with Spring's '@Autowired', 
+     * '@Value' or JSR-330's '@Inject' annotation.
+     * 
+     * @param beanFactory - Spring BeanFactory instance
+     */
+    public void setBeanFactory(BeanFactory beanFactory) {
+        this.beanFactory = beanFactory;
+    }
 
     /**
      * Read config object stored in JSON format from <code>File</code>
      *
-     * @param file
-     * @return
-     * @throws IOException
+     * @param file object
+     * @return config
+     * @throws IOException error
      */
     public static RedissonNodeConfig fromJSON(File file) throws IOException {
         ConfigSupport support = new ConfigSupport();
@@ -112,9 +130,9 @@ public class RedissonNodeConfig extends Config {
     /**
      * Read config object stored in YAML format from <code>File</code>
      *
-     * @param file
-     * @return
-     * @throws IOException
+     * @param file object
+     * @return config
+     * @throws IOException error
      */
     public static RedissonNodeConfig fromYAML(File file) throws IOException {
         ConfigSupport support = new ConfigSupport();

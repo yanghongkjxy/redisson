@@ -1,5 +1,5 @@
 /**
- * Copyright 2016 Nikita Koksharov
+ * Copyright (c) 2013-2020 Nikita Koksharov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,21 +17,19 @@ package org.redisson.misc;
 
 import org.redisson.api.RFuture;
 
-import io.netty.util.concurrent.FutureListener;
-import io.netty.util.concurrent.Promise;
-
 /**
  * 
  * @author Nikita Koksharov
  *
- * @param <T>
+ * @param <T> type
  */
 public interface RPromise<T> extends RFuture<T> {
 
     /**
      * Marks this future as a success and notifies all
      * listeners.
-     *
+     * 
+     * @param result object
      * @return {@code true} if and only if successfully marked this future as
      *         a success. Otherwise {@code false} because this future is
      *         already marked as either a success or a failure.
@@ -41,7 +39,8 @@ public interface RPromise<T> extends RFuture<T> {
     /**
      * Marks this future as a failure and notifies all
      * listeners.
-     *
+     * 
+     * @param cause object
      * @return {@code true} if and only if successfully marked this future as
      *         a failure. Otherwise {@code false} because this future is
      *         already marked as either a success or a failure.
@@ -57,18 +56,6 @@ public interface RPromise<T> extends RFuture<T> {
     boolean setUncancellable();
 
     @Override
-    RPromise<T> addListener(FutureListener<? super T> listener);
-
-    @Override
-    RPromise<T> addListeners(FutureListener<? super T>... listeners);
-
-    @Override
-    RPromise<T> removeListener(FutureListener<? super T> listener);
-
-    @Override
-    RPromise<T> removeListeners(FutureListener<? super T>... listeners);
-
-    @Override
     RPromise<T> await() throws InterruptedException;
 
     @Override
@@ -80,4 +67,6 @@ public interface RPromise<T> extends RFuture<T> {
     @Override
     RPromise<T> syncUninterruptibly();
 
+    boolean hasListeners();
+    
 }

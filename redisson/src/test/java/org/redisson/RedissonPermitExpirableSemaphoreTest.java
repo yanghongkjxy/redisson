@@ -6,11 +6,65 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import org.junit.Assert;
 import org.junit.Test;
 import org.redisson.api.RPermitExpirableSemaphore;
 import org.redisson.client.RedisException;
 
 public class RedissonPermitExpirableSemaphoreTest extends BaseConcurrentTest {
+
+    @Test
+    public void testUpdateLeaseTime() throws InterruptedException {
+        RPermitExpirableSemaphore semaphore = redisson.getPermitExpirableSemaphore("test");
+        semaphore.trySetPermits(1);
+        assertThat(semaphore.updateLeaseTime("123", 1, TimeUnit.SECONDS)).isFalse();
+        String id = semaphore.acquire();
+        assertThat(semaphore.updateLeaseTime(id, 1, TimeUnit.SECONDS)).isTrue();
+        Thread.sleep(1200);
+        assertThat(semaphore.updateLeaseTime(id, 1, TimeUnit.SECONDS)).isFalse();
+        String id2 = semaphore.tryAcquire(1, 1, TimeUnit.SECONDS);
+        assertThat(semaphore.updateLeaseTime(id2, 3, TimeUnit.SECONDS)).isTrue();
+        Thread.sleep(2800);
+        assertThat(semaphore.availablePermits()).isZero();
+        Thread.sleep(500);
+        assertThat(semaphore.availablePermits()).isOne();
+        assertThat(semaphore.updateLeaseTime(id2, 2, TimeUnit.SECONDS)).isFalse();
+    }
+    
+    @Test
+    public void testNotExistent() {
+        RPermitExpirableSemaphore semaphore = redisson.getPermitExpirableSemaphore("testSemaphoreForNPE");
+        Assert.assertEquals(0, semaphore.availablePermits());        
+    }
+    
+    @Test
+    public void testAvailablePermits() throws InterruptedException {
+        RPermitExpirableSemaphore semaphore = redisson.getPermitExpirableSemaphore("test-semaphore");
+        assertThat(semaphore.trySetPermits(2)).isTrue();
+        Assert.assertEquals(2, semaphore.availablePermits());
+        String acquire1 = semaphore.tryAcquire(200, 1000, TimeUnit.MILLISECONDS);
+        assertThat(acquire1).isNotNull();
+        String acquire2 = semaphore.tryAcquire(200, 1000, TimeUnit.MILLISECONDS);
+        assertThat(acquire2).isNotNull();
+        String acquire3 = semaphore.tryAcquire(200, 1000, TimeUnit.MILLISECONDS);
+        assertThat(acquire3).isNull();
+        Assert.assertEquals(0, semaphore.availablePermits());
+        Thread.sleep(1100);
+        String acquire4 = semaphore.tryAcquire(200, 1000, TimeUnit.MILLISECONDS);
+        assertThat(acquire4).isNotNull();
+        Thread.sleep(1100);
+        Assert.assertEquals(2, semaphore.availablePermits());
+    }
+
+    @Test
+    public void testExpiration() throws InterruptedException {
+        RPermitExpirableSemaphore semaphore = redisson.getPermitExpirableSemaphore("some-key");
+        semaphore.trySetPermits(1);
+        semaphore.expire(3, TimeUnit.SECONDS);
+        semaphore.tryAcquire(1, 1, TimeUnit.SECONDS);
+        Thread.sleep(4100);
+        assertThat(redisson.getKeys().count()).isZero();
+    }
 
     @Test
     public void testExpire() throws InterruptedException {
@@ -154,7 +208,7 @@ public class RedissonPermitExpirableSemaphoreTest extends BaseConcurrentTest {
         long startTime = System.currentTimeMillis();
         String permitId2 = s.tryAcquire(1, TimeUnit.SECONDS);
         assertThat(permitId2).hasSize(32);
-        assertThat(System.currentTimeMillis() - startTime).isBetween(500L, 600L);
+        assertThat(System.currentTimeMillis() - startTime).isBetween(450L, 600L);
         assertThat(s.availablePermits()).isEqualTo(0);
     }
 

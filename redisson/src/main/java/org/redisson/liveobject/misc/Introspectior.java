@@ -1,5 +1,5 @@
 /**
- * Copyright 2016 Nikita Koksharov
+ * Copyright (c) 2013-2020 Nikita Koksharov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,11 @@
 package org.redisson.liveobject.misc;
 
 import java.lang.annotation.Annotation;
+import java.lang.reflect.Field;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
 import net.bytebuddy.description.field.FieldDescription;
 import net.bytebuddy.description.field.FieldList;
 import net.bytebuddy.description.method.MethodDescription;
@@ -28,11 +33,11 @@ import net.bytebuddy.matcher.ElementMatchers;
  */
 public class Introspectior {
 
-    public static TypeDescription.ForLoadedType getTypeDescription(Class c) {
+    public static TypeDescription.ForLoadedType getTypeDescription(Class<?> c) {
         return new TypeDescription.ForLoadedType(c);
     }
 
-    public static MethodDescription getMethodDescription(Class c, String method) {
+    public static MethodDescription getMethodDescription(Class<?> c, String method) {
         if (method == null || method.isEmpty()) {
             return null;
         }
@@ -42,7 +47,13 @@ public class Introspectior {
                 .getOnly();
     }
 
-    public static FieldDescription getFieldDescription(Class c, String field) {
+    public static FieldList<FieldDescription.InDefinedShape> getFieldsDescription(Class<?> c) {
+        return getTypeDescription(c)
+                .getDeclaredFields();
+                
+    }
+    
+    public static FieldDescription getFieldDescription(Class<?> c, String field) {
         if (field == null || field.isEmpty()) {
             return null;
         }
@@ -52,9 +63,16 @@ public class Introspectior {
                 .getOnly();
     }
 
-    public static FieldList<FieldDescription.InDefinedShape> getFieldsWithAnnotation(Class c, Class<? extends Annotation> a) {
-        return getTypeDescription(c)
-                .getDeclaredFields()
+    public static FieldList<FieldDescription.InDefinedShape> getFieldsWithAnnotation(Class<?> c, Class<? extends Annotation> a) {
+        return getAllFields(c)
                 .filter(ElementMatchers.isAnnotatedWith(a));
+    }
+
+    public static FieldList<FieldDescription.InDefinedShape> getAllFields(Class<?> cls) {
+        List<Field> fields = new ArrayList<Field>();
+        for (Class<?> c = cls; c != null; c = c.getSuperclass()) {
+            Collections.addAll(fields, c.getDeclaredFields());
+        }
+        return new FieldList.ForLoadedFields(fields);
     }
 }

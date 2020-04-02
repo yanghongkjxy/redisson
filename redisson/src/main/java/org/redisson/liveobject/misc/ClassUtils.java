@@ -1,5 +1,5 @@
 /**
- * Copyright 2016 Nikita Koksharov
+ * Copyright (c) 2013-2020 Nikita Koksharov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -45,13 +45,112 @@
 
 package org.redisson.liveobject.misc;
 
+import java.lang.annotation.Annotation;
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+
+import org.redisson.api.RLiveObject;
+import org.redisson.cache.LRUCacheMap;
 
 /**
  *
  * @author Rui Gu (https://github.com/jackygurui) Modified
  */
 public class ClassUtils {
+    
+    public static void setField(Object obj, String fieldName, Object value) {
+        try {
+            Field field = getDeclaredField(obj.getClass(), fieldName);
+            if (!field.isAccessible()) {
+                field.setAccessible(true);
+            }
+            field.set(obj, value);
+        } catch (Exception e) {
+            throw new IllegalArgumentException(e);
+        }
+    }
+    
+    public static <T extends Annotation> T getAnnotation(Class<?> clazz, String fieldName, Class<T> annotationClass) {
+        try {
+            Field field = getDeclaredField(clazz, fieldName);
+            if (!field.isAccessible()) {
+                field.setAccessible(true);
+            }
+            return field.getAnnotation(annotationClass);
+        } catch (NoSuchFieldException e) {
+            return null;
+        }
+    }
+
+    public static <T extends Annotation> T getAnnotation(Class<?> clazz, Class<T> annotationClass) {
+        for (Class<?> c : getClassHierarchy(clazz)) {
+            if (c.getAnnotation(annotationClass) != null) {
+                return c.getAnnotation(annotationClass);
+            }
+        }
+        return null;
+    }
+
+    public static <T> T getField(Object obj, String fieldName) {
+        try {
+            Field field = getDeclaredField(obj.getClass(), fieldName);
+            if (!field.isAccessible()) {
+                field.setAccessible(true);
+            }
+            return (T) field.get(obj);
+        } catch (Exception e) {
+            throw new IllegalArgumentException(e);
+        }
+    }
+
+    public static Field getDeclaredField(Class<?> clazz, String fieldName) throws NoSuchFieldException {
+        for (Class<?> c : getClassHierarchy(clazz)) {
+            for (Field field : c.getDeclaredFields()) {
+                if (field.getName().equals(fieldName)) {
+                    return field;
+                }
+            }
+        }
+        throw new NoSuchFieldException("No such field: " + fieldName);
+    }
+    
+    private static final Map<Class<?>, Boolean> ANNOTATED_CLASSES = new LRUCacheMap<Class<?>, Boolean>(500, 0, 0);
+
+    public static boolean isAnnotationPresent(Class<?> clazz, Class<? extends Annotation> annotation) {
+        if (clazz.getName().startsWith("java.")) {
+            return false;
+        }
+        
+        Boolean isAnnotated = ANNOTATED_CLASSES.get(clazz);
+        if (isAnnotated == null) {
+            for (Class<?> c : getClassHierarchy(clazz)) {
+                if (c.isAnnotationPresent(annotation)) {
+                    ANNOTATED_CLASSES.put(clazz, true);
+                    return true;
+                }
+            }
+            ANNOTATED_CLASSES.put(clazz, false);
+            return false;
+        }
+        return isAnnotated;
+    }
+
+    private static Iterable<Class<?>> getClassHierarchy(Class<?> clazz) {
+        // Don't descend into hierarchy for RObjects
+        if (Arrays.asList(clazz.getInterfaces()).contains(RLiveObject.class)) {
+            return Collections.<Class<?>>singleton(clazz);
+        }
+        List<Class<?>> classes = new ArrayList<Class<?>>();
+        for (Class<?> c = clazz; c != null; c = c.getSuperclass()) {
+            classes.add(c);
+        }
+        return classes;
+    }
     
     /**
      * Searches through all methods looking for one with the specified name that
@@ -60,8 +159,14 @@ public class ClassUtils {
      * findConstructor() method and has the similar limitations that it doesn't
      * do a real widening scope search and simply processes the methods in
      * order.
+     * 
+     * @param type param
+     * @param name of class
+     * @param parms classes
+     * 
+     * @return Method object
      */
-    public static Method searchForMethod(Class type, String name, Class[] parms) {
+    public static Method searchForMethod(Class<?> type, String name, Class<?>[] parms) {
         try {
             return type.getMethod(name, parms);
         } catch (NoSuchMethodException e) {}
@@ -72,7 +177,7 @@ public class ClassUtils {
                 continue;
             }
 
-            Class[] types = methods[i].getParameterTypes();
+            Class<?>[] types = methods[i].getParameterTypes();
             // Does it have the same number of arguments that we're looking for.
             if (types.length != parms.length) {
                 continue;
@@ -86,7 +191,7 @@ public class ClassUtils {
         return null;
     }
 
-    private static boolean areTypesCompatible(Class[] targets, Class[] sources) {
+    private static boolean areTypesCompatible(Class<?>[] targets, Class<?>[] sources) {
         if (targets.length != sources.length) {
             return false;
         }
@@ -107,6 +212,9 @@ public class ClassUtils {
      * If this specified class represents a primitive type (int, float, etc.)
      * then it is translated into its wrapper type (Integer, Float, etc.). If
      * the passed class is not a primitive then it is just returned.
+     * 
+     * @param primitive class
+     * @return class
      */
     private static Class<?> translateFromPrimitive(Class<?> primitive) {
         if (!primitive.isPrimitive()) {

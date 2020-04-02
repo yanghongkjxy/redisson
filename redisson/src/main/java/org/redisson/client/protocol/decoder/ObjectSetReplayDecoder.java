@@ -1,5 +1,5 @@
 /**
- * Copyright 2016 Nikita Koksharov
+ * Copyright (c) 2013-2020 Nikita Koksharov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,29 +15,29 @@
  */
 package org.redisson.client.protocol.decoder;
 
-import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
 import org.redisson.client.handler.State;
+import org.redisson.client.protocol.Decoder;
 
-import io.netty.buffer.ByteBuf;
-
+/**
+ * 
+ * @author Nikita Koksharov
+ *
+ * @param <T> value type
+ */
 public class ObjectSetReplayDecoder<T> implements MultiDecoder<Set<T>> {
 
     @Override
-    public Object decode(ByteBuf buf, State state) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public Set<T> decode(List<Object> parts, State state) {
-        return new HashSet(parts);
+        return new LinkedHashSet(parts);
     }
 
     @Override
-    public boolean isApplicable(int paramNum, State state) {
-        return false;
+    public Decoder<Object> getDecoder(int paramNum, State state) {
+        return null;
     }
 
 }

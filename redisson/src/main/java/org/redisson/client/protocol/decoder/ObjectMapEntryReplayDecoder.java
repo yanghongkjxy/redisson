@@ -1,5 +1,5 @@
 /**
- * Copyright 2016 Nikita Koksharov
+ * Copyright (c) 2013-2020 Nikita Koksharov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,37 +15,36 @@
  */
 package org.redisson.client.protocol.decoder;
 
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
 import org.redisson.client.handler.State;
+import org.redisson.client.protocol.Decoder;
 
-import io.netty.buffer.ByteBuf;
-
+/**
+ * 
+ * @author Nikita Koksharov
+ *
+ */
 public class ObjectMapEntryReplayDecoder implements MultiDecoder<Set<Entry<Object, Object>>> {
 
     @Override
-    public Object decode(ByteBuf buf, State state) {
-        throw new UnsupportedOperationException();
+    public Decoder<Object> getDecoder(int paramNum, State state) {
+        return null;
     }
 
     @Override
     public Set<Entry<Object, Object>> decode(List<Object> parts, State state) {
-        Map<Object, Object> result = new HashMap<Object, Object>(parts.size()/2);
+        Map<Object, Object> result = new LinkedHashMap<Object, Object>(parts.size()/2);
         for (int i = 0; i < parts.size(); i++) {
             if (i % 2 != 0) {
                 result.put(parts.get(i-1), parts.get(i));
            }
         }
         return result.entrySet();
-    }
-
-    @Override
-    public boolean isApplicable(int paramNum, State state) {
-        return false;
     }
 
 }

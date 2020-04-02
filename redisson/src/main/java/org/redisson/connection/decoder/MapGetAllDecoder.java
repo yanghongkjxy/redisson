@@ -1,5 +1,5 @@
 /**
- * Copyright 2016 Nikita Koksharov
+ * Copyright (c) 2013-2020 Nikita Koksharov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,46 +15,50 @@
  */
 package org.redisson.connection.decoder;
 
-import java.io.IOException;
-import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 import org.redisson.client.handler.State;
+import org.redisson.client.protocol.Decoder;
 import org.redisson.client.protocol.decoder.MultiDecoder;
 
-import io.netty.buffer.ByteBuf;
-
+/**
+ * 
+ * @author Nikita Koksharov
+ *
+ */
 public class MapGetAllDecoder implements MultiDecoder<Map<Object, Object>> {
 
     private final int shiftIndex;
     private final List<Object> args;
+    private final boolean allowNulls;
 
     public MapGetAllDecoder(List<Object> args, int shiftIndex) {
+        this(args, shiftIndex, false);
+    }
+    
+    public MapGetAllDecoder(List<Object> args, int shiftIndex, boolean allowNulls) {
         this.args = args;
         this.shiftIndex = shiftIndex;
+        this.allowNulls = allowNulls;
     }
 
     @Override
-    public Object decode(ByteBuf buf, State state) throws IOException {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public boolean isApplicable(int paramNum, State state) {
-        return false;
+    public Decoder<Object> getDecoder(int paramNum, State state) {
+        return null;
     }
 
     @Override
     public Map<Object, Object> decode(List<Object> parts, State state) {
         if (parts.isEmpty()) {
-            return Collections.emptyMap();
+            return new HashMap<Object, Object>();
         }
-        Map<Object, Object> result = new HashMap<Object, Object>(parts.size());
+        Map<Object, Object> result = new LinkedHashMap<Object, Object>(parts.size());
         for (int index = 0; index < args.size()-shiftIndex; index++) {
             Object value = parts.get(index);
-            if (value == null) {
+            if (!allowNulls && value == null) {
                 continue;
             }
             result.put(args.get(index+shiftIndex), value);

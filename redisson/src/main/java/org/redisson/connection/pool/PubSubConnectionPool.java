@@ -1,5 +1,5 @@
 /**
- * Copyright 2016 Nikita Koksharov
+ * Copyright (c) 2013-2020 Nikita Koksharov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,17 +17,28 @@ package org.redisson.connection.pool;
 
 import org.redisson.api.RFuture;
 import org.redisson.client.RedisPubSubConnection;
+import org.redisson.client.protocol.RedisCommands;
 import org.redisson.config.MasterSlaveServersConfig;
 import org.redisson.connection.ClientConnectionsEntry;
 import org.redisson.connection.ConnectionManager;
 import org.redisson.connection.MasterSlaveEntry;
 
+/**
+ * Connection pool for Publish / Subscribe
+ * 
+ * @author Nikita Koksharov
+ *
+ */
 public class PubSubConnectionPool extends ConnectionPool<RedisPubSubConnection> {
 
     public PubSubConnectionPool(MasterSlaveServersConfig config, ConnectionManager connectionManager, MasterSlaveEntry masterSlaveEntry) {
         super(config, connectionManager, masterSlaveEntry);
     }
 
+    public RFuture<RedisPubSubConnection> get() {
+        return get(RedisCommands.PUBLISH);
+    }
+    
     @Override
     protected RedisPubSubConnection poll(ClientConnectionsEntry entry) {
         return entry.pollSubscribeConnection();
@@ -35,7 +46,7 @@ public class PubSubConnectionPool extends ConnectionPool<RedisPubSubConnection> 
 
     @Override
     protected int getMinimumIdleSize(ClientConnectionsEntry entry) {
-        return config.getSlaveSubscriptionConnectionMinimumIdleSize();
+        return config.getSubscriptionConnectionMinimumIdleSize();
     }
 
     @Override
@@ -44,10 +55,10 @@ public class PubSubConnectionPool extends ConnectionPool<RedisPubSubConnection> 
     }
 
     @Override
-    protected boolean tryAcquireConnection(ClientConnectionsEntry entry) {
-        return entry.tryAcquireSubscribeConnection();
+    protected void acquireConnection(ClientConnectionsEntry entry, Runnable runnable) {
+        entry.acquireSubscribeConnection(runnable);
     }
-
+    
     @Override
     protected void releaseConnection(ClientConnectionsEntry entry) {
         entry.releaseSubscribeConnection();

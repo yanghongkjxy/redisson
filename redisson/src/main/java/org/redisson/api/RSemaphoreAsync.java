@@ -1,5 +1,5 @@
 /**
- * Copyright 2016 Nikita Koksharov
+ * Copyright (c) 2013-2020 Nikita Koksharov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@ package org.redisson.api;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Distributed and concurrent implementation of {@link java.util.concurrent.Semaphore}.
+ * Async interface of Redis based {@link java.util.concurrent.Semaphore}.
  * <p>
  * Works in non-fair mode. Therefore order of acquiring is unpredictable.
  * 
@@ -28,152 +28,113 @@ import java.util.concurrent.TimeUnit;
 public interface RSemaphoreAsync extends RExpirableAsync {
     
     /**
-     * Acquires a permit only if one is available at the
-     * time of invocation.
+     * Acquires a permit.
+     * Waits if necessary until a permit became available.
      *
-     * <p>Acquires a permit, if one is available and returns immediately,
-     * with the value {@code true},
-     * reducing the number of available permits by one.
-     *
-     * <p>If no permit is available then this method will return
-     * immediately with the value {@code false}.
-     *
-     * @return {@code true} if a permit was acquired and {@code false}
+     * @return <code>true</code> if a permit was acquired and <code>false</code>
      *         otherwise
      */
     RFuture<Boolean> tryAcquireAsync();
     
     /**
-     * Acquires the given number of permits only if all are available at the
-     * time of invocation.
-     *
-     * <p>Acquires a permits, if all are available and returns immediately,
-     * with the value {@code true},
-     * reducing the number of available permits by given number of permitss.
-     *
-     * <p>If no permits are available then this method will return
-     * immediately with the value {@code false}.
+     * Tries to acquire defined amount of currently available <code>permits</code>.
      *
      * @param permits the number of permits to acquire
-     * @return {@code true} if a permit was acquired and {@code false}
+     * @return <code>true</code> if permits were acquired and <code>false</code>
      *         otherwise
      */
     RFuture<Boolean> tryAcquireAsync(int permits);
 
     /**
-     * Acquires a permit from this semaphore.
-     *
-     * <p>Acquires a permit, if one is available and returns immediately,
-     * reducing the number of available permits by one.
+     * Acquires a permit.
+     * Waits if necessary until a permit became available.
+     * 
+     * @return void
      *
      */
     RFuture<Void> acquireAsync();
 
     /**
-     * Acquires the given number of permits, if they are available,
-     * and returns immediately, reducing the number of available permits
-     * by the given amount.
+     * Acquires defined amount of <code>permits</code>.
+     * Waits if necessary until all permits became available.
      *
      * @param permits the number of permits to acquire
-     * @throws IllegalArgumentException if {@code permits} is negative
+     * @throws IllegalArgumentException if <code>permits</code> is negative
+     * @return void
      */
     RFuture<Void> acquireAsync(int permits);
 
     /**
-     * Releases a permit, returning it to the semaphore.
+     * Releases a permit.
      *
-     * <p>Releases a permit, increasing the number of available permits by
-     * one. If any threads of Redisson client are trying to acquire a permit,
-     * then one is selected and given the permit that was just released.
-     *
-     * <p>There is no requirement that a thread that releases a permit must
-     * have acquired that permit by calling {@link #acquire}.
-     * Correct usage of a semaphore is established by programming convention
-     * in the application.
+     * @return void
      */
     RFuture<Void> releaseAsync();
 
     /**
-     * Releases the given number of permits, returning them to the semaphore.
+     * Releases defined amount of <code>permits</code>.
      *
-     * <p>Releases the given number of permits, increasing the number of available permits by
-     * the given number of permits. If any threads of Redisson client are trying to
-     * acquire a permits, then next threads is selected and tries to acquire the permits that was just released.
-     *
-     * <p>There is no requirement that a thread that releases a permits must
-     * have acquired that permit by calling {@link #acquire}.
-     * Correct usage of a semaphore is established by programming convention
-     * in the application.
+     * @param permits amount
+     * @return void
      */
     RFuture<Void> releaseAsync(int permits);
 
     /**
-     * Use {@link #trySetPermitsAsync(int)}
-     */
-    @Deprecated
-    RFuture<Void> setPermitsAsync(int permits);
-    
-    /**
-     * Sets new number of permits.
+     * Tries to set number of permits.
      *
-     * @param count - number of times {@link #countDown} must be invoked
-     *        before threads can pass through {@link #await}
-     * @result <code>true</code> if semaphore has not initialized yet, otherwise <code>false</code>.  
-     *        
+     * @param permits - number of permits
+     * @return <code>true</code> if permits has been set successfully, otherwise <code>false</code>.  
      */
     RFuture<Boolean> trySetPermitsAsync(int permits);
 
     /**
-     * <p>Acquires a permit, if one is available and returns immediately,
-     * with the value {@code true},
-     * reducing the number of available permits by one.
+     * Tries to acquire currently available permit.
+     * Waits up to defined <code>waitTime</code> if necessary until a permit became available.
      *
-     * <p>If a permit is acquired then the value {@code true} is returned.
-     *
-     * <p>If the specified waiting time elapses then the value {@code false}
-     * is returned.  If the time is less than or equal to zero, the method
-     * will not wait at all.
-     *
-     * @param waitTime the maximum time to wait for a permit
-     * @param unit the time unit of the {@code timeout} argument
-     * @return {@code true} if a permit was acquired and {@code false}
-     *         if the waiting time elapsed before a permit was acquired
+     * @param waitTime the maximum time to wait
+     * @param unit the time unit
+     * @return <code>true</code> if a permit was acquired and <code>false</code>
+     *         otherwise
      */
     RFuture<Boolean> tryAcquireAsync(long waitTime, TimeUnit unit);
     
     /**
-     * Acquires the given number of permits only if all are available
-     * within the given waiting time.
+     * Tries to acquire defined amount of currently available <code>permits</code>.
+     * Waits up to defined <code>waitTime</code> if necessary until all permits became available.
      *
-     * <p>Acquires a permits, if all are available and returns immediately,
-     * with the value {@code true},
-     * reducing the number of available permits by one.
-     *
-     * <p>If a permits is acquired then the value {@code true} is returned.
-     *
-     * <p>If the specified waiting time elapses then the value {@code false}
-     * is returned.  If the time is less than or equal to zero, the method
-     * will not wait at all.
-     *
-     * @param permits
-     * @param waitTime the maximum time to wait for a available permits
-     * @param unit the time unit of the {@code timeout} argument
-     * @return {@code true} if a permit was acquired and {@code false}
-     *         if the waiting time elapsed before a permit was acquired
-     * @throws InterruptedException if the current thread is interrupted
+     * @param permits amount of permits
+     * @param waitTime the maximum time to wait
+     * @param unit the time unit
+     * @return <code>true</code> if permits were acquired and <code>false</code>
+     *         otherwise
      */
     RFuture<Boolean> tryAcquireAsync(int permits, long waitTime, TimeUnit unit);
 
-    /**
-     * Shrinks the number of available permits by the indicated
-     * reduction. This method can be useful in subclasses that use
-     * semaphores to track resources that become unavailable. This
-     * method differs from {@code acquire} in that it does not block
-     * waiting for permits to become available.
-     *
-     * @param reduction the number of permits to remove
-     * @throws IllegalArgumentException if {@code reduction} is negative
+    /*
+     * Use addPermits instead
      */
+    @Deprecated
     RFuture<Void> reducePermitsAsync(int permits);
-    
+
+    /**
+     * Increases or decreases the number of available permits by defined value.
+     *
+     * @param permits amount of permits to add/remove
+     */
+    RFuture<Void> addPermitsAsync(int permits);
+
+    /**
+     * Returns amount of available permits.
+     *
+     * @return number of permits
+     */
+    RFuture<Integer> availablePermitsAsync();
+
+    /**
+     * Acquires and returns all permits that are immediately available.
+     *
+     * @return number of permits
+     */
+    RFuture<Integer> drainPermitsAsync();
+
 }

@@ -1,5 +1,5 @@
 /**
- * Copyright 2016 Nikita Koksharov
+ * Copyright (c) 2013-2020 Nikita Koksharov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,14 +23,14 @@ import java.util.Map;
  * @author Nikita Koksharov
  *
  */
+@Deprecated
 public interface ClusterNode extends Node {
 
     /**
      * Execute CLUSTER INFO operation.
      *
-     * @return Map extracted via each response line splitting
-     *         by ':' symbol
+     * @return value mapped by field
      */
-    Map<String, String> info();
-
+    Map<String, String> clusterInfo();
+    
 }

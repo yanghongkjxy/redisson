@@ -7,6 +7,24 @@ import static org.assertj.core.api.Assertions.*;
 
 public class RedissonBloomFilterTest extends BaseTest {
 
+    @Test(expected = IllegalArgumentException.class)
+    public void testFalseProbability1() {
+        RBloomFilter<String> filter = redisson.getBloomFilter("filter");
+        filter.tryInit(1, -1);
+    }
+    
+    @Test(expected = IllegalArgumentException.class)
+    public void testFalseProbability2() {
+        RBloomFilter<String> filter = redisson.getBloomFilter("filter");
+        filter.tryInit(1, 2);
+    }
+    
+    @Test(expected = IllegalArgumentException.class)
+    public void testSizeZero() {
+        RBloomFilter<String> filter = redisson.getBloomFilter("filter");
+        filter.tryInit(1, 1);
+    }
+    
     @Test
     public void testConfig() {
         RBloomFilter<String> filter = redisson.getBloomFilter("filter");
@@ -25,6 +43,7 @@ public class RedissonBloomFilterTest extends BaseTest {
 
         filter.delete();
 
+        assertThat(redisson.getKeys().count()).isZero();
         assertThat(filter.tryInit(55000001L, 0.03)).isTrue();
     }
 

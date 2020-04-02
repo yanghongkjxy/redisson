@@ -10,11 +10,15 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.concurrent.ExecutionException;
 
 import org.junit.Assert;
 import org.junit.Test;
 import org.redisson.api.RMapReactive;
+import org.redisson.client.codec.DoubleCodec;
+import org.redisson.client.codec.IntegerCodec;
+import org.redisson.codec.CompositeCodec;
 
 public class RedissonMapReactiveTest extends BaseReactiveTest {
 
@@ -121,8 +125,34 @@ public class RedissonMapReactiveTest extends BaseReactiveTest {
     }
 
     @Test
+    public void testIteratorSequence() throws InterruptedException {
+        RMapReactive<Long, Long> map = redisson.getMap("map");
+        for (int i = 0; i < 1000; i++) {
+            sync(map.put(Long.valueOf(i), Long.valueOf(i)));
+        }
+
+        Map<Long, Long> setCopy = new HashMap<>();
+        for (int i = 0; i < 1000; i++) {
+            setCopy.put(Long.valueOf(i), Long.valueOf(i));
+        }
+
+        checkIterator(map, setCopy);
+    }
+
+    private <K, V> void checkIterator(RMapReactive<K, V> set, Map<K, V> setCopy) {
+        for (Iterator<Entry<K, V>> iterator = toIterator(set.entryIterator()); iterator.hasNext();) {
+            Entry<K, V> entry = iterator.next();
+            if (!setCopy.remove(entry.getKey(), entry.getValue())) {
+                Assert.fail();
+            }
+        }
+
+        Assert.assertEquals(0, setCopy.size());
+    }
+    
+    @Test
     public void testAddAndGet() throws InterruptedException {
-        RMapReactive<Integer, Integer> map = redisson.getMap("getAll");
+        RMapReactive<Integer, Integer> map = redisson.getMap("getAll", new CompositeCodec(redisson.getConfig().getCodec(), IntegerCodec.INSTANCE));
         sync(map.put(1, 100));
 
         Integer res = sync(map.addAndGet(1, 12));
@@ -130,7 +160,7 @@ public class RedissonMapReactiveTest extends BaseReactiveTest {
         res = sync(map.get(1));
         Assert.assertEquals(112, (int)res);
 
-        RMapReactive<Integer, Double> map2 = redisson.getMap("getAll2");
+        RMapReactive<Integer, Double> map2 = redisson.getMap("getAll2", new CompositeCodec(redisson.getConfig().getCodec(), DoubleCodec.INSTANCE));
         sync(map2.put(1, new Double(100.2)));
 
         Double res2 = sync(map2.addAndGet(1, new Double(12.1)));
@@ -138,7 +168,7 @@ public class RedissonMapReactiveTest extends BaseReactiveTest {
         res2 = sync(map2.get(1));
         Assert.assertTrue(new Double(112.3).compareTo(res2) == 0);
 
-        RMapReactive<String, Integer> mapStr = redisson.getMap("mapStr");
+        RMapReactive<String, Integer> mapStr = redisson.getMap("mapStr", new CompositeCodec(redisson.getConfig().getCodec(), IntegerCodec.INSTANCE));
         assertThat(sync(mapStr.put("1", 100))).isNull();
 
         assertThat(sync(mapStr.addAndGet("1", 12))).isEqualTo(112);
@@ -206,23 +236,6 @@ public class RedissonMapReactiveTest extends BaseReactiveTest {
     }
 
     @Test
-    public void testNull() {
-        RMapReactive<Integer, String> map = redisson.getMap("simple12");
-        sync(map.put(1, null));
-        sync(map.put(2, null));
-        sync(map.put(3, "43"));
-
-        Assert.assertEquals(3, sync(map.size()).intValue());
-
-        String val = sync(map.get(2));
-        Assert.assertNull(val);
-        String val2 = sync(map.get(1));
-        Assert.assertNull(val2);
-        String val3 = sync(map.get(3));
-        Assert.assertEquals("43", val3);
-    }
-
-    @Test
     public void testSimpleTypes() {
         RMapReactive<Integer, String> map = redisson.getMap("simple12");
         sync(map.put(1, "12"));
@@ -245,23 +258,6 @@ public class RedissonMapReactiveTest extends BaseReactiveTest {
 
         Assert.assertEquals(1, sync(map.size()).intValue());
     }
-
-    @Test
-    public void testEquals() {
-        RMapReactive<String, String> map = redisson.getMap("simple");
-        sync(map.put("1", "7"));
-        sync(map.put("2", "4"));
-        sync(map.put("3", "5"));
-
-        Map<String, String> testMap = new HashMap<String, String>();
-        testMap.put("1", "7");
-        testMap.put("2", "4");
-        testMap.put("3", "5");
-
-        Assert.assertEquals(map, testMap);
-        Assert.assertEquals(map.hashCode(), testMap.hashCode());
-    }
-
 
     @Test
     public void testPutAll() {
@@ -307,8 +303,8 @@ public class RedissonMapReactiveTest extends BaseReactiveTest {
         RMapReactive<SimpleKey, SimpleValue> map = redisson.getMap("simple");
         sync(map.put(new SimpleKey("1"), new SimpleValue("2")));
 
-        long size = sync(map.remove(new SimpleKey("1"), new SimpleValue("2")));
-        Assert.assertEquals(1, size);
+        boolean size = sync(map.remove(new SimpleKey("1"), new SimpleValue("2")));
+        Assert.assertTrue(size);
 
         SimpleValue val1 = sync(map.get(new SimpleKey("1")));
         Assert.assertNull(val1);
@@ -321,11 +317,11 @@ public class RedissonMapReactiveTest extends BaseReactiveTest {
         RMapReactive<SimpleKey, SimpleValue> map = redisson.getMap("simple");
         sync(map.put(new SimpleKey("1"), new SimpleValue("2")));
 
-        long size = sync(map.remove(new SimpleKey("2"), new SimpleValue("1")));
-        Assert.assertEquals(0, size);
+        boolean removed = sync(map.remove(new SimpleKey("2"), new SimpleValue("1")));
+        Assert.assertFalse(removed);
 
-        long size2 = sync(map.remove(new SimpleKey("1"), new SimpleValue("3")));
-        Assert.assertEquals(0, size2);
+        boolean size2 = sync(map.remove(new SimpleKey("1"), new SimpleValue("3")));
+        Assert.assertFalse(size2);
 
         SimpleValue val1 = sync(map.get(new SimpleKey("1")));
         Assert.assertEquals("2", val1.getValue());
@@ -444,9 +440,9 @@ public class RedissonMapReactiveTest extends BaseReactiveTest {
     @Test
     public void testEmptyRemove() {
         RMapReactive<Integer, Integer> map = redisson.getMap("simple");
-        Assert.assertEquals(0, sync(map.remove(1, 3)).intValue());
+        assertThat(sync(map.remove(1, 3))).isFalse();
         sync(map.put(4, 5));
-        Assert.assertEquals(1, sync(map.remove(4, 5)).intValue());
+        assertThat(sync(map.remove(4, 5))).isTrue();
     }
 
     @Test

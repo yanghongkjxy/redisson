@@ -8,8 +8,8 @@ import java.util.Iterator;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 
-import org.hamcrest.MatcherAssert;
-import org.hamcrest.Matchers;
+import static org.assertj.core.api.Assertions.*;
+
 import org.junit.Assert;
 import org.junit.Test;
 import org.redisson.api.RSetReactive;
@@ -40,7 +40,7 @@ public class RedissonSetReactiveTest extends BaseReactiveTest {
         sync(list.add(5));
 
         RSetReactive<Integer> list2 = redisson.getSet("set2");
-        Assert.assertEquals(5, sync(list2.addAll(list.iterator())).intValue());
+        Assert.assertEquals(true, sync(list2.addAll(list.iterator())));
         Assert.assertEquals(5, sync(list2.size()).intValue());
     }
 
@@ -51,9 +51,9 @@ public class RedissonSetReactiveTest extends BaseReactiveTest {
         sync(set.add(2));
         sync(set.add(3));
 
-        MatcherAssert.assertThat(sync(set.removeRandom()), Matchers.isOneOf(1, 2, 3));
-        MatcherAssert.assertThat(sync(set.removeRandom()), Matchers.isOneOf(1, 2, 3));
-        MatcherAssert.assertThat(sync(set.removeRandom()), Matchers.isOneOf(1, 2, 3));
+        assertThat(sync(set.removeRandom())).isIn(1, 2, 3);
+        assertThat(sync(set.removeRandom())).isIn(1, 2, 3);
+        assertThat(sync(set.removeRandom())).isIn(1, 2, 3);
         Assert.assertNull(sync(set.removeRandom()));
     }
 
@@ -64,10 +64,11 @@ public class RedissonSetReactiveTest extends BaseReactiveTest {
         sync(set.add(2));
         sync(set.add(3));
 
-        MatcherAssert.assertThat(sync(set.random()), Matchers.isOneOf(1, 2, 3));
-        MatcherAssert.assertThat(sync(set.random()), Matchers.isOneOf(1, 2, 3));
-        MatcherAssert.assertThat(sync(set.random()), Matchers.isOneOf(1, 2, 3));
-        Assert.assertThat(sync(set), Matchers.containsInAnyOrder(1, 2, 3));
+        assertThat(sync(set.random())).isIn(1, 2, 3);
+        assertThat(sync(set.random())).isIn(1, 2, 3);
+        assertThat(sync(set.random())).isIn(1, 2, 3);
+
+        assertThat(sync(set)).containsOnly(1, 2, 3);
     }
 
     @Test
@@ -100,14 +101,14 @@ public class RedissonSetReactiveTest extends BaseReactiveTest {
 
         Assert.assertTrue(sync(set.remove(1)));
         Assert.assertFalse(sync(set.contains(1)));
-        Assert.assertThat(sync(set), Matchers.containsInAnyOrder(3, 7));
+        assertThat(sync(set)).containsExactly(3, 7);
 
         Assert.assertFalse(sync(set.remove(1)));
-        Assert.assertThat(sync(set), Matchers.containsInAnyOrder(3, 7));
+        assertThat(sync(set)).containsExactly(3, 7);
 
         sync(set.remove(3));
         Assert.assertFalse(sync(set.contains(3)));
-        Assert.assertThat(sync(set), Matchers.contains(7));
+        assertThat(sync(set)).containsExactly(7);
     }
 
     @Test
@@ -126,7 +127,7 @@ public class RedissonSetReactiveTest extends BaseReactiveTest {
     }
 
     private void checkIterator(RSetReactive<Long> set, Set<Long> setCopy) {
-        for (Iterator<Long> iterator = toIterator(set.iterator()); iterator.hasNext();) {
+        for (Iterator<Long> iterator = toIterator(set.iterator()); iterator.hasNext(); ) {
             Long value = iterator.next();
             if (!setCopy.remove(value)) {
                 Assert.fail();
@@ -142,7 +143,7 @@ public class RedissonSetReactiveTest extends BaseReactiveTest {
         sync(set.add(1L));
         sync(set.add(2L));
 
-        Assert.assertThat(sync(set), Matchers.containsInAnyOrder(1L, 2L));
+        assertThat(sync(set)).containsOnly(1L, 2L);
     }
 
     @Test
@@ -153,7 +154,7 @@ public class RedissonSetReactiveTest extends BaseReactiveTest {
         }
 
         Assert.assertTrue(sync(set.retainAll(Arrays.asList(1, 2))));
-        Assert.assertThat(sync(set), Matchers.containsInAnyOrder(1, 2));
+        assertThat(sync(set)).containsExactlyInAnyOrder(1, 2);
         Assert.assertEquals(2, sync(set.size()).intValue());
     }
 
@@ -232,7 +233,7 @@ public class RedissonSetReactiveTest extends BaseReactiveTest {
         sync(set.add(2));
 
         Assert.assertFalse(sync(set.retainAll(Arrays.asList(1, 2)))); // nothing changed
-        Assert.assertThat(sync(set), Matchers.containsInAnyOrder(1, 2));
+        assertThat(sync(set)).containsExactly(1, 2);
     }
 
 
@@ -247,10 +248,10 @@ public class RedissonSetReactiveTest extends BaseReactiveTest {
         Assert.assertTrue(sync(set.move("otherSet", 1)));
 
         Assert.assertEquals(1, sync(set.size()).intValue());
-        Assert.assertThat(sync(set), Matchers.contains(2));
+        assertThat(sync(set)).containsExactly(2);
 
         Assert.assertEquals(1, sync(otherSet.size()).intValue());
-        Assert.assertThat(sync(otherSet), Matchers.contains(1));
+        assertThat(sync(otherSet)).containsExactly(1);
     }
 
     @Test
@@ -258,11 +259,37 @@ public class RedissonSetReactiveTest extends BaseReactiveTest {
         RSetReactive<Integer> set = redisson.getSet("set");
         RSetReactive<Integer> otherSet = redisson.getSet("otherSet");
 
-        set.add(1);
+        sync(set.add(1));
 
         Assert.assertFalse(sync(set.move("otherSet", 2)));
 
         Assert.assertEquals(1, sync(set.size()).intValue());
         Assert.assertEquals(0, sync(otherSet.size()).intValue());
+    }
+
+    @Test
+    public void testIntersection() {
+        final String firstSetName = "firstSet";
+        RSetReactive<Integer> firstSet = redisson.getSet(firstSetName);
+
+        sync(firstSet.add(1));
+        sync(firstSet.add(2));
+        sync(firstSet.add(3));
+
+        final String secondSetName = "secondSet";
+        RSetReactive<Integer> secondSet = redisson.getSet(secondSetName);
+
+        sync(secondSet.add(3));
+        sync(secondSet.add(4));
+        sync(secondSet.add(1));
+
+        final RSetReactive<Object> tmp = redisson.getSet("tmp");
+
+        final Integer count = sync(tmp.intersection(firstSetName, secondSetName));
+
+        Assert.assertEquals(2, count.intValue());
+
+        Assert.assertTrue(sync(tmp.contains(1)));
+        Assert.assertTrue(sync(tmp.contains(3)));
     }
 }

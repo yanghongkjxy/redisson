@@ -1,5 +1,5 @@
 /**
- * Copyright 2016 Nikita Koksharov
+ * Copyright (c) 2013-2020 Nikita Koksharov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,18 +21,17 @@ import org.redisson.api.listener.PatternMessageListener;
 import org.redisson.api.listener.PatternStatusListener;
 
 /**
- * Distributed topic. Messages are delivered to all message listeners across Redis cluster.
+ * Pattern based observer for Publish Subscribe object.
  *
  * @author Nikita Koksharov
  *
- * @param <M> the type of message object
  */
-public interface RPatternTopic<M> {
+public interface RPatternTopic {
 
     /**
      * Get topic channel patterns
      *
-     * @return
+     * @return list of topic names
      */
     List<String> getPatternNames();
 
@@ -40,18 +39,20 @@ public interface RPatternTopic<M> {
      * Subscribes to this topic.
      * <code>MessageListener.onMessage</code> is called when any message
      * is published on this topic.
-     *
-     * @param listener
-     * @return locally unique listener id
+     * 
+     * @param <T> type of message
+     * @param type - type of message
+     * @param listener - message listener
+     * @return local JVM unique listener id
      * @see org.redisson.api.listener.MessageListener
      */
-    int addListener(PatternMessageListener<M> listener);
+    <T> int addListener(Class<T> type, PatternMessageListener<T> listener);
 
     /**
      * Subscribes to status changes of this topic
      *
-     * @param listener
-     * @return
+     * @param listener - message listener
+     * @return local JVM unique listener id
      * @see org.redisson.api.listener.StatusListener
      */
     int addListener(PatternStatusListener listener);
@@ -59,8 +60,26 @@ public interface RPatternTopic<M> {
     /**
      * Removes the listener by <code>id</code> for listening this topic
      *
-     * @param listenerId
+     * @param listenerId - id of message listener
      */
     void removeListener(int listenerId);
+    
+    /**
+     * Removes the listener by its instance
+     *
+     * @param listener - listener instance
+     */
+    void removeListener(PatternMessageListener<?> listener);
+    
+    /**
+     * Removes all listeners from this topic
+     */
+    void removeAllListeners();
+    
+    RFuture<Integer> addListenerAsync(PatternStatusListener listener);
+    
+    <T> RFuture<Integer> addListenerAsync(Class<T> type, PatternMessageListener<T> listener);
+
+    RFuture<Void> removeListenerAsync(int listenerId);
 
 }

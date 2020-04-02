@@ -1,5 +1,5 @@
 /**
- * Copyright 2016 Nikita Koksharov
+ * Copyright (c) 2013-2020 Nikita Koksharov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,10 @@ import org.redisson.client.protocol.Decoder;
 import org.redisson.client.protocol.Encoder;
 
 /**
- * Redis codec interface
+ * Redis codec interface.
+ * <p>
+ * It's required for implementation to have two constructors
+ * default and with ClassLoader object as parameter. 
  *
  * @author Nikita Koksharov
  *
@@ -29,43 +32,50 @@ public interface Codec {
     /**
      * Returns object decoder used for hash map values in HMAP Redis structure
      *
-     * @return
+     * @return decoder
      */
     Decoder<Object> getMapValueDecoder();
 
     /**
      * Returns object encoder used for hash map values in HMAP Redis structure
      *
-     * @return
+     * @return encoder
      */
     Encoder getMapValueEncoder();
 
     /**
      * Returns object decoder used for hash map keys in HMAP Redis structure
      *
-     * @return
+     * @return decoder
      */
     Decoder<Object> getMapKeyDecoder();
 
     /**
      * Returns object encoder used for hash map keys in HMAP Redis structure
      *
-     * @return
+     * @return encoder
      */
     Encoder getMapKeyEncoder();
 
     /**
      * Returns object decoder used for any objects stored Redis structure except HMAP
      *
-     * @return
+     * @return decoder
      */
     Decoder<Object> getValueDecoder();
 
     /**
      * Returns object encoder used for any objects stored Redis structure except HMAP
      *
-     * @return
+     * @return encoder
      */
     Encoder getValueEncoder();
+    
+    /**
+     * Returns class loader object used to load classes used in decoding process
+     * 
+     * @return class loader
+     */
+    ClassLoader getClassLoader();
 
 }

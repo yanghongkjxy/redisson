@@ -1,5 +1,5 @@
 /**
- * Copyright 2016 Nikita Koksharov
+ * Copyright (c) 2013-2020 Nikita Koksharov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,15 +19,28 @@ import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
-import org.redisson.liveobject.resolver.RandomUUIDIdStringGenerator;
+
+import org.redisson.liveobject.resolver.LongGenerator;
 import org.redisson.liveobject.resolver.RIdResolver;
+import org.redisson.liveobject.resolver.RequiredIdResolver;
+import org.redisson.liveobject.resolver.UUIDGenerator;
 
 /**
+ * Specifies that the field is a Live Object's id field.
+ * Only single field could be specified per class. 
  *
  * @author Rui Gu (https://github.com/jackygurui)
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.FIELD})
 public @interface RId {
-    Class<? extends RIdResolver> generator() default RandomUUIDIdStringGenerator.class;
+    
+    /**
+     * (Optional) Live Object id generator. By default id is required to be fill during object creation.
+     * 
+     * @see UUIDGenerator
+     * @see LongGenerator
+     */
+    Class<? extends RIdResolver<?>> generator() default RequiredIdResolver.class;
+    
 }

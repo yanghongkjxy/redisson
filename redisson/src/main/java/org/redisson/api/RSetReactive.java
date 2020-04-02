@@ -1,5 +1,5 @@
 /**
- * Copyright 2016 Nikita Koksharov
+ * Copyright (c) 2013-2020 Nikita Koksharov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,34 +15,118 @@
  */
 package org.redisson.api;
 
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+
 import java.util.Set;
 
-import org.reactivestreams.Publisher;
-
 /**
- * Async set functions
+ * Reactive interface for Redis based implementation of {@link java.util.Set}
  *
  * @author Nikita Koksharov
  *
- * @param <V> value
+ * @param <V> type of value
  */
-public interface RSetReactive<V> extends RCollectionReactive<V> {
+public interface RSetReactive<V> extends RCollectionReactive<V>, RSortableReactive<Set<V>> {
 
     /**
-     * Removes and returns random element from set
-     * in async mode
-     *
-     * @return
+     * Returns <code>RPermitExpirableSemaphore</code> instance associated with <code>value</code>
+     * 
+     * @param value - set value
+     * @return RPermitExpirableSemaphore object
      */
-    Publisher<V> removeRandom();
+    RPermitExpirableSemaphoreReactive getPermitExpirableSemaphore(V value);
 
     /**
-     * Returns random element from set
-     * in async mode
-     *
-     * @return
+     * Returns <code>RSemaphore</code> instance associated with <code>value</code>
+     * 
+     * @param value - set value
+     * @return RSemaphore object
      */
-    Publisher<V> random();
+    RSemaphoreReactive getSemaphore(V value);
+    
+    /**
+     * Returns <code>RLock</code> instance associated with <code>value</code>
+     * 
+     * @param value - set value
+     * @return RLock object
+     */
+    RLockReactive getFairLock(V value);
+    
+    /**
+     * Returns <code>RReadWriteLock</code> instance associated with <code>value</code>
+     * 
+     * @param value - set value
+     * @return RReadWriteLock object
+     */
+    RReadWriteLockReactive getReadWriteLock(V value);
+    
+    /**
+     * Returns lock instance associated with <code>value</code>
+     * 
+     * @param value - set value
+     * @return RLock object
+     */
+    RLockReactive getLock(V value);
+    
+    /**
+     * Returns elements iterator fetches elements in a batch.
+     * Batch size is defined by <code>count</code> param.
+     * 
+     * @param count - size of elements batch
+     * @return iterator
+     */
+    Flux<V> iterator(int count);
+    
+    /**
+     * Returns elements iterator fetches elements in a batch.
+     * Batch size is defined by <code>count</code> param.
+     * If pattern is not null then only elements match this pattern are loaded.
+     * 
+     * @param pattern - search pattern
+     * @param count - size of elements batch
+     * @return iterator
+     */
+    Flux<V> iterator(String pattern, int count);
+    
+    /**
+     * Returns elements iterator.
+     * If <code>pattern</code> is not null then only elements match this pattern are loaded.
+     * 
+     * @param pattern - search pattern
+     * @return iterator
+     */
+    Flux<V> iterator(String pattern);
+    
+    /**
+     * Removes and returns random elements limited by <code>amount</code>
+     *
+     * @param amount of random elements
+     * @return random elements
+     */
+    Mono<Set<V>> removeRandom(int amount);
+    
+    /**
+     * Removes and returns random element
+     *
+     * @return random element
+     */
+    Mono<V> removeRandom();
+
+    /**
+     * Returns random element
+     *
+     * @return random element
+     */
+    Mono<V> random();
+
+    /**
+     * Returns random elements from set limited by <code>count</code>
+     *
+     * @param count - values amount to return
+     * @return random elements
+     */
+    Mono<Set<V>> random(int count);
 
     /**
      * Move a member from this set to the given destination set in async mode.
@@ -52,51 +136,67 @@ public interface RSetReactive<V> extends RCollectionReactive<V> {
      * @return true if the element is moved, false if the element is not a
      * member of this set or no operation was performed
      */
-    Publisher<Boolean> move(String destination, V member);
+    Mono<Boolean> move(String destination, V member);
 
+    /**
+     * Read all elements at once
+     *
+     * @return values
+     */
+    Mono<Set<V>> readAll();
+    
     /**
      * Union sets specified by name and write to current set.
      * If current set already exists, it is overwritten.
      *
-     * @param names
-     * @return
+     * @param names - name of sets
+     * @return size of union
      */
-    Publisher<Long> union(String... names);
+    Mono<Integer> union(String... names);
 
     /**
      * Union sets specified by name with current set.
      * Without current set state change.
      *
-     * @param names
-     * @return
+     * @param names - name of sets
+     * @return size of union
      */
-    Publisher<Set<V>> readUnion(String... names);
+    Mono<Set<V>> readUnion(String... names);
     
     /**
      * Diff sets specified by name and write to current set.
      * If current set already exists, it is overwritten.
      *
-     * @param names
-     * @return
+     * @param names - name of sets
+     * @return size of diff
      */
-    Publisher<Long> diff(String... names);
+    Mono<Integer> diff(String... names);
+    
+    /**
+     * Diff sets specified by name with current set.
+     * Without current set state change.
+     * 
+     * @param names - name of sets
+     * @return values
+     */
+    Mono<Set<V>> readDiff(String... names);
     
     /**
      * Intersection sets specified by name and write to current set.
      * If current set already exists, it is overwritten.
      *
-     * @param names
-     * @return
+     * @param names - name of sets
+     * @return size of intersection
      */
-    Publisher<Long> intersection(String... names);
+    Mono<Integer> intersection(String... names);
 
     /**
      * Intersection sets specified by name with current set.
      * Without current set state change.
      *
-     * @param names
-     * @return
+     * @param names - name of sets
+     * @return values
      */
-    Publisher<Set<V>> readIntersection(String... names);
+    Mono<Set<V>> readIntersection(String... names);
 
 }

@@ -1,5 +1,5 @@
 /**
- * Copyright 2016 Nikita Koksharov
+ * Copyright (c) 2013-2020 Nikita Koksharov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,6 +33,8 @@ public class CacheConfig {
     private long ttl;
 
     private long maxIdleTime;
+    
+    private int maxSize;
 
     /**
      * Creates config object with
@@ -47,10 +49,7 @@ public class CacheConfig {
      *
      * @param ttl - time to live for key\value entry in milliseconds.
      *              If <code>0</code> then time to live doesn't affect entry expiration.
-     * @param ttlUnit
      * @param maxIdleTime - max idle time for key\value entry in milliseconds.
-     *              If <code>0</code> then max idle time doesn't affect entry expiration.
-     * @param maxIdleUnit
      * <p>
      * if <code>maxIdleTime</code> and <code>ttl</code> params are equal to <code>0</code>
      * then entry stores infinitely.
@@ -75,6 +74,21 @@ public class CacheConfig {
         this.ttl = ttl;
     }
 
+    
+    public int getMaxSize() {
+        return maxSize;
+    }
+
+    /**
+     * Set max size of map. Superfluous elements are evicted using LRU algorithm.
+     *
+     * @param maxSize - max size
+     *                  If <code>0</code> the cache is unbounded (default).
+     */
+    public void setMaxSize(int maxSize) {
+        this.maxSize = maxSize;
+    }
+
     public long getMaxIdleTime() {
         return maxIdleTime;
     }
@@ -92,131 +106,133 @@ public class CacheConfig {
     /**
      * Read config objects stored in JSON format from <code>String</code>
      *
-     * @param content
-     * @return
-     * @throws IOException
+     * @param content of config
+     * @return config
+     * @throws IOException error
      */
-    public static Map<String, CacheConfig> fromJSON(String content) throws IOException {
+    public static Map<String, ? extends CacheConfig> fromJSON(String content) throws IOException {
         return new CacheConfigSupport().fromJSON(content);
     }
 
     /**
      * Read config objects stored in JSON format from <code>InputStream</code>
      *
-     * @param inputStream
-     * @return
-     * @throws IOException
+     * @param inputStream of config
+     * @return config
+     * @throws IOException error
      */
-    public static Map<String, CacheConfig> fromJSON(InputStream inputStream) throws IOException {
+    public static Map<String, ? extends CacheConfig> fromJSON(InputStream inputStream) throws IOException {
         return new CacheConfigSupport().fromJSON(inputStream);
     }
 
     /**
      * Read config objects stored in JSON format from <code>File</code>
      *
-     * @param file
-     * @return
-     * @throws IOException
+     * @param file of config
+     * @return config
+     * @throws IOException error
      */
-    public static Map<String, CacheConfig> fromJSON(File file) throws IOException {
+    public static Map<String, ? extends CacheConfig> fromJSON(File file) throws IOException {
         return new CacheConfigSupport().fromJSON(file);
     }
 
     /**
      * Read config objects stored in JSON format from <code>URL</code>
      *
-     * @param url
-     * @return
-     * @throws IOException
+     * @param url of config
+     * @return config
+     * @throws IOException error
      */
-    public static Map<String, CacheConfig> fromJSON(URL url) throws IOException {
+    public static Map<String, ? extends CacheConfig> fromJSON(URL url) throws IOException {
         return new CacheConfigSupport().fromJSON(url);
     }
 
     /**
      * Read config objects stored in JSON format from <code>Reader</code>
      *
-     * @param reader
-     * @return
-     * @throws IOException
+     * @param reader of config
+     * @return config
+     * @throws IOException error
      */
-    public static Map<String, CacheConfig> fromJSON(Reader reader) throws IOException {
+    public static Map<String, ? extends CacheConfig> fromJSON(Reader reader) throws IOException {
         return new CacheConfigSupport().fromJSON(reader);
     }
 
     /**
      * Convert current configuration to JSON format
      *
-     * @return
-     * @throws IOException
+     * @param config object
+     * @return json string
+     * @throws IOException error
      */
-    public static String toJSON(Map<String, CacheConfig> configs) throws IOException {
-        return new CacheConfigSupport().toJSON(configs);
+    public static String toJSON(Map<String, ? extends CacheConfig> config) throws IOException {
+        return new CacheConfigSupport().toJSON(config);
     }
 
     /**
      * Read config objects stored in YAML format from <code>String</code>
      *
-     * @param content
-     * @return
-     * @throws IOException
+     * @param content of config
+     * @return config
+     * @throws IOException error
      */
-    public static Map<String, CacheConfig> fromYAML(String content) throws IOException {
+    public static Map<String, ? extends CacheConfig> fromYAML(String content) throws IOException {
         return new CacheConfigSupport().fromYAML(content);
     }
 
     /**
      * Read config objects stored in YAML format from <code>InputStream</code>
      *
-     * @param inputStream
-     * @return
-     * @throws IOException
+     * @param inputStream of config
+     * @return config
+     * @throws IOException  error
      */
-    public static Map<String, CacheConfig> fromYAML(InputStream inputStream) throws IOException {
+    public static Map<String, ? extends CacheConfig> fromYAML(InputStream inputStream) throws IOException {
         return new CacheConfigSupport().fromYAML(inputStream);
     }
 
     /**
      * Read config objects stored in YAML format from <code>File</code>
      *
-     * @param file
-     * @return
-     * @throws IOException
+     * @param file of config
+     * @return config
+     * @throws IOException error
      */
-    public static Map<String, CacheConfig> fromYAML(File file) throws IOException {
+    public static Map<String, ? extends CacheConfig> fromYAML(File file) throws IOException {
         return new CacheConfigSupport().fromYAML(file);
     }
 
     /**
      * Read config objects stored in YAML format from <code>URL</code>
      *
-     * @param url
-     * @return
-     * @throws IOException
+     * @param url of config
+     * @return config
+     * @throws IOException error
      */
-    public static Map<String, CacheConfig> fromYAML(URL url) throws IOException {
+    public static Map<String, ? extends CacheConfig> fromYAML(URL url) throws IOException {
         return new CacheConfigSupport().fromYAML(url);
     }
 
     /**
      * Read config objects stored in YAML format from <code>Reader</code>
      *
-     * @param reader
-     * @return
-     * @throws IOException
+     * @param reader of config
+     * @return config
+     * @throws IOException error
      */
-    public static Map<String, CacheConfig> fromYAML(Reader reader) throws IOException {
+    public static Map<String, ? extends CacheConfig> fromYAML(Reader reader) throws IOException {
         return new CacheConfigSupport().fromYAML(reader);
     }
 
     /**
      * Convert current configuration to YAML format
      *
-     * @return
-     * @throws IOException
+     * @param config map
+     * @return yaml string
+     * @throws IOException error
      */
-    public static String toYAML(Map<String, CacheConfig> configs) throws IOException {
-        return new CacheConfigSupport().toYAML(configs);
+    public static String toYAML(Map<String, ? extends CacheConfig> config) throws IOException {
+        return new CacheConfigSupport().toYAML(config);
     }
 
 }

@@ -1,5 +1,5 @@
 /**
- * Copyright 2016 Nikita Koksharov
+ * Copyright (c) 2013-2020 Nikita Koksharov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,19 +15,19 @@
  */
 package org.redisson;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
-import java.util.concurrent.TimeUnit;
-
 import org.redisson.api.RBlockingQueue;
 import org.redisson.api.RFuture;
+import org.redisson.api.RedissonClient;
 import org.redisson.client.codec.Codec;
 import org.redisson.client.protocol.RedisCommand;
 import org.redisson.client.protocol.RedisCommands;
 import org.redisson.command.CommandAsyncExecutor;
 import org.redisson.connection.decoder.ListDrainToDecoder;
+
+import java.util.Collection;
+import java.util.Collections;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 
 /**
  * <p>Distributed and concurrent implementation of {@link java.util.concurrent.BlockingQueue}.
@@ -40,12 +40,12 @@ import org.redisson.connection.decoder.ListDrainToDecoder;
  */
 public class RedissonBlockingQueue<V> extends RedissonQueue<V> implements RBlockingQueue<V> {
 
-    protected RedissonBlockingQueue(CommandAsyncExecutor commandExecutor, String name) {
-        super(commandExecutor, name);
+    public RedissonBlockingQueue(CommandAsyncExecutor commandExecutor, String name, RedissonClient redisson) {
+        super(commandExecutor, name, redisson);
     }
 
-    protected RedissonBlockingQueue(Codec codec, CommandAsyncExecutor commandExecutor, String name) {
-        super(codec, commandExecutor, name);
+    public RedissonBlockingQueue(Codec codec, CommandAsyncExecutor commandExecutor, String name, RedissonClient redisson) {
+        super(codec, commandExecutor, name, redisson);
     }
 
     @Override
@@ -78,13 +78,12 @@ public class RedissonBlockingQueue<V> extends RedissonQueue<V> implements RBlock
      */
     @Override
     public V take() throws InterruptedException {
-        RFuture<V> res = takeAsync();
-        return res.await().getNow();
+        return commandExecutor.getInterrupted(takeAsync());
     }
 
     @Override
     public RFuture<V> pollAsync(long timeout, TimeUnit unit) {
-        return commandExecutor.writeAsync(getName(), codec, RedisCommands.BLPOP_VALUE, getName(), unit.toSeconds(timeout));
+        return commandExecutor.writeAsync(getName(), codec, RedisCommands.BLPOP_VALUE, getName(), toSeconds(timeout, unit));
     }
 
     /*
@@ -93,8 +92,7 @@ public class RedissonBlockingQueue<V> extends RedissonQueue<V> implements RBlock
      */
     @Override
     public V poll(long timeout, TimeUnit unit) throws InterruptedException {
-        RFuture<V> res = pollAsync(timeout, unit);
-        return res.await().getNow();
+        return commandExecutor.getInterrupted(pollAsync(timeout, unit));
     }
 
     /*
@@ -102,9 +100,8 @@ public class RedissonBlockingQueue<V> extends RedissonQueue<V> implements RBlock
      * @see org.redisson.core.RBlockingQueue#pollFromAny(long, java.util.concurrent.TimeUnit, java.lang.String[])
      */
     @Override
-    public V pollFromAny(long timeout, TimeUnit unit, String ... queueNames) throws InterruptedException {
-        RFuture<V> res = pollFromAnyAsync(timeout, unit, queueNames);
-        return res.await().getNow();
+    public V pollFromAny(long timeout, TimeUnit unit, String... queueNames) throws InterruptedException {
+        return commandExecutor.getInterrupted(pollFromAnyAsync(timeout, unit, queueNames));
     }
 
     /*
@@ -112,25 +109,28 @@ public class RedissonBlockingQueue<V> extends RedissonQueue<V> implements RBlock
      * @see org.redisson.core.RBlockingQueueAsync#pollFromAnyAsync(long, java.util.concurrent.TimeUnit, java.lang.String[])
      */
     @Override
-    public RFuture<V> pollFromAnyAsync(long timeout, TimeUnit unit, String ... queueNames) {
-        List<Object> params = new ArrayList<Object>(queueNames.length + 1);
-        params.add(getName());
-        for (Object name : queueNames) {
-            params.add(name);
-        }
-        params.add(unit.toSeconds(timeout));
-        return commandExecutor.writeAsync(getName(), codec, RedisCommands.BLPOP_VALUE, params.toArray());
+    public RFuture<V> pollFromAnyAsync(long timeout, TimeUnit unit, String... queueNames) {
+        return commandExecutor.pollFromAnyAsync(getName(), codec, RedisCommands.BLPOP_VALUE, toSeconds(timeout, unit), queueNames);
     }
 
     @Override
     public RFuture<V> pollLastAndOfferFirstToAsync(String queueName, long timeout, TimeUnit unit) {
-        return commandExecutor.writeAsync(getName(), codec, RedisCommands.BRPOPLPUSH, getName(), queueName, unit.toSeconds(timeout));
+        return commandExecutor.writeAsync(getName(), codec, RedisCommands.BRPOPLPUSH, getName(), queueName, toSeconds(timeout, unit));
     }
 
     @Override
     public V pollLastAndOfferFirstTo(String queueName, long timeout, TimeUnit unit) throws InterruptedException {
-        RFuture<V> res = pollLastAndOfferFirstToAsync(queueName, timeout, unit);
-        return res.await().getNow();
+        return commandExecutor.getInterrupted(pollLastAndOfferFirstToAsync(queueName, timeout, unit));
+    }
+    
+    @Override
+    public V takeLastAndOfferFirstTo(String queueName) throws InterruptedException {
+        return commandExecutor.getInterrupted(takeLastAndOfferFirstToAsync(queueName));
+    }
+    
+    @Override
+    public RFuture<V> takeLastAndOfferFirstToAsync(String queueName) {
+        return pollLastAndOfferFirstToAsync(queueName, 0, TimeUnit.SECONDS);
     }
 
     @Override
@@ -151,7 +151,7 @@ public class RedissonBlockingQueue<V> extends RedissonQueue<V> implements RBlock
 
         return commandExecutor.evalWriteAsync(getName(), codec, new RedisCommand<Object>("EVAL", new ListDrainToDecoder(c)),
               "local vals = redis.call('lrange', KEYS[1], 0, -1); " +
-              "redis.call('ltrim', KEYS[1], -1, 0); " +
+              "redis.call('del', KEYS[1]); " +
               "return vals", Collections.<Object>singletonList(getName()));
     }
 
@@ -176,4 +176,15 @@ public class RedissonBlockingQueue<V> extends RedissonQueue<V> implements RBlock
                         "return vals",
                 Collections.<Object>singletonList(getName()), maxElements);
     }
+
+    @Override
+    public int subscribeOnElements(Consumer<V> consumer) {
+        return commandExecutor.getConnectionManager().getElementsSubscribeService().subscribeOnElements(this::takeAsync, consumer);
+    }
+
+    @Override
+    public void unsubscribe(int listenerId) {
+        commandExecutor.getConnectionManager().getElementsSubscribeService().unsubscribe(listenerId);
+    }
+
 }

@@ -1,5 +1,5 @@
 /**
- * Copyright 2016 Nikita Koksharov
+ * Copyright (c) 2013-2020 Nikita Koksharov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,13 +15,21 @@
  */
 package org.redisson.connection.pool;
 
+import org.redisson.api.RFuture;
 import org.redisson.client.RedisConnection;
+import org.redisson.client.protocol.RedisCommand;
 import org.redisson.config.MasterSlaveServersConfig;
+import org.redisson.connection.ClientConnectionsEntry;
 import org.redisson.connection.ConnectionManager;
 import org.redisson.connection.MasterSlaveEntry;
-import org.redisson.connection.ClientConnectionsEntry;
 
 
+/**
+ * Connection pool for master node
+ * 
+ * @author Nikita Koksharov
+ *
+ */
 public class MasterConnectionPool extends ConnectionPool<RedisConnection> {
     public MasterConnectionPool(MasterSlaveServersConfig config,
             ConnectionManager connectionManager, MasterSlaveEntry masterSlaveEntry) {
@@ -29,10 +37,10 @@ public class MasterConnectionPool extends ConnectionPool<RedisConnection> {
     }
 
     @Override
-    protected ClientConnectionsEntry getEntry() {
-        return entries.get(0);
+    public RFuture<RedisConnection> get(RedisCommand<?> command) {
+        return acquireConnection(command, entries.get(0));
     }
-
+    
     public void remove(ClientConnectionsEntry entry) {
         entries.remove(entry);
     }

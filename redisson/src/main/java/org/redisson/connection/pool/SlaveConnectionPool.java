@@ -1,5 +1,5 @@
 /**
- * Copyright 2016 Nikita Koksharov
+ * Copyright (c) 2013-2020 Nikita Koksharov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,12 @@ import org.redisson.connection.ClientConnectionsEntry;
 import org.redisson.connection.ConnectionManager;
 import org.redisson.connection.MasterSlaveEntry;
 
+/**
+ * Connection pool for slave node
+ * 
+ * @author Nikita Koksharov
+ *
+ */
 public class SlaveConnectionPool extends ConnectionPool<RedisConnection> {
 
     public SlaveConnectionPool(MasterSlaveServersConfig config, ConnectionManager connectionManager,

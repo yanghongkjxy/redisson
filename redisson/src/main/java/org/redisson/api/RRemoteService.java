@@ -1,5 +1,5 @@
 /**
- * Copyright 2016 Nikita Koksharov
+ * Copyright (c) 2013-2020 Nikita Koksharov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,21 +24,20 @@ import java.util.concurrent.TimeUnit;
  * <b>1. Server side instance (worker instance).</b> Register object with RRemoteService instance. 
  * <p>
  * <code>
- * RRemoteService remoteService = redisson.getRemoteService();<br/>
- * <br/>
- * // register remote service before any remote invocation<br/>
+ * RRemoteService remoteService = redisson.getRemoteService();<br>
+ * <br>
+ * // register remote service before any remote invocation<br>
  * remoteService.register(SomeServiceInterface.class, someServiceImpl);
  * </code>
  * <p>
  * <b>2. Client side instance.</b> Invokes method remotely.
  * <p>
  * <code>
- * RRemoteService remoteService = redisson.getRemoteService();<br/>
- * SomeServiceInterface service = remoteService.get(SomeServiceInterface.class);<br/>
- * <br/>
+ * RRemoteService remoteService = redisson.getRemoteService();<br>
+ * SomeServiceInterface service = remoteService.get(SomeServiceInterface.class);<br>
+ * <br>
  * String result = service.doSomeStuff(1L, "secondParam", new AnyParam());
  * </code>
- * <p>
  * <p>
  * There are two timeouts during execution:
  * <p>
@@ -59,19 +58,45 @@ import java.util.concurrent.TimeUnit;
 public interface RRemoteService {
 
     /**
-     * Register remote service with single worker
+     * Returns free workers amount available for invocations 
      * 
-     * @param remoteInterface
-     * @param object
+     * @param remoteInterface - remote service interface
+     * @return workers amount
+     */
+    int getFreeWorkers(Class<?> remoteInterface);
+    
+    /**
+     * Returns pending invocations amount for handling in free workers.
+     * 
+     * @param remoteInterface - remote service interface
+     * @return invocations amount
+     */
+    int getPendingInvocations(Class<?> remoteInterface);
+
+    /**
+     * Returns pending invocations amount for handling in free workers.
+     *
+     * @param remoteInterface - remote service interface
+     * @return invocations amount
+     */
+    RFuture<Integer> getPendingInvocationsAsync(Class<?> remoteInterface);
+
+    /**
+     * Register remote service with single worker
+     *
+     * @param <T> type of remote service
+     * @param remoteInterface - remote service interface
+     * @param object - remote service object
      */
     <T> void register(Class<T> remoteInterface, T object);
     
     /**
      * Register remote service with custom workers amount
-     * 
-     * @param remoteInterface
-     * @param object
-     * @param workersAmount
+     *
+     * @param <T> type of remote service
+     * @param remoteInterface - remote service interface
+     * @param object - remote service object
+     * @param workersAmount - workers amount
      */
     <T> void register(Class<T> remoteInterface, T object, int workersAmount);
 
@@ -79,13 +104,93 @@ public interface RRemoteService {
      * Register remote service with custom workers amount
      * and executor for running them
      * 
-     * @param remoteInterface
-     * @param object
-     * @param workers
-     * @param executor
+     * @param <T> type of remote service
+     * @param remoteInterface - remote service interface
+     * @param object - remote service object
+     * @param workers - workers amount
+     * @param executor - executor service used to invoke methods
      */
     <T> void register(Class<T> remoteInterface, T object, int workers, ExecutorService executor);
     
+    /**
+     * Deregister all workers for remote service
+     *
+     * @param <T> type of remote service
+     * @param remoteInterface - remote service interface
+     */
+    <T> void deregister(Class<T> remoteInterface);
+
+    /**
+     * Tries to execute one awaiting remote request.
+     * Waits up to <code>timeout</code> if necessary until remote request became available.
+     *
+     * @param remoteInterface - remote service interface
+     * @param object - remote service object
+     * @param timeout - maximum wait time until remote request became available
+     * @param timeUnit - time unit
+     * @param <T> - type of remote service
+     * @return <code>true</code> if method was successfully executed and
+     *          <code>false</code> if timeout reached before execution
+     * @throws InterruptedException - if the thread is interrupted
+     */
+    <T> boolean tryExecute(Class<T> remoteInterface, T object, long timeout, TimeUnit timeUnit) throws InterruptedException;
+
+    /**
+     * Tries to execute one awaiting remote request.
+     * Waits up to <code>timeout</code> if necessary until remote request became available.
+     *
+     * @param remoteInterface - remote service interface
+     * @param object - remote service object
+     * @param timeout - maximum wait time until remote request became available
+     * @param timeUnit - time unit
+     * @param executorService - executor service used to invoke methods
+     * @param <T> - type of remote service
+     * @return <code>true</code> if method was successfully executed and
+     *          <code>false</code> if timeout reached before execution
+     * @throws InterruptedException - if the thread is interrupted
+     */
+    <T> boolean tryExecute(Class<T> remoteInterface, T object, ExecutorService executorService, long timeout, TimeUnit timeUnit) throws InterruptedException;
+
+    /**
+     * Tries to execute one awaiting remote request.
+     *
+     * @param remoteInterface - remote service interface
+     * @param object - remote service object
+     * @param <T> - type of remote service
+     * @return <code>true</code> if method was successfully executed and
+     *          <code>false</code> if timeout reached before execution
+     */
+    <T> RFuture<Boolean> tryExecuteAsync(Class<T> remoteInterface, T object);
+
+    /**
+     * Tries to execute one awaiting remote request.
+     * Waits up to <code>timeout</code> if necessary until remote request became available.
+     *
+     * @param remoteInterface - remote service interface
+     * @param object - remote service object
+     * @param timeout - maximum wait time until remote request became available
+     * @param timeUnit - time unit
+     * @param <T> - type of remote service
+     * @return <code>true</code> if method was successfully executed and
+     *          <code>false</code> if timeout reached before execution
+     */
+    <T> RFuture<Boolean> tryExecuteAsync(Class<T> remoteInterface, T object, long timeout, TimeUnit timeUnit);
+
+    /**
+     * Tries to execute one awaiting remote request.
+     * Waits up to <code>timeout</code> if necessary until remote request became available.
+     *
+     * @param remoteInterface - remote service interface
+     * @param object - remote service object
+     * @param timeout - maximum wait time until remote request became available
+     * @param timeUnit - time unit
+     * @param executorService - executor service used to invoke methods
+     * @param <T> - type of remote service
+     * @return <code>true</code> if method was successfully executed and
+     *          <code>false</code> if timeout reached before execution
+     */
+    <T> RFuture<Boolean> tryExecuteAsync(Class<T> remoteInterface, T object, ExecutorService executorService, long timeout, TimeUnit timeUnit);
+
     /**
      * Get remote service object for remote invocations.
      * <p>
@@ -97,8 +202,9 @@ public interface RRemoteService {
      * @see RemoteInvocationOptions#defaults()
      * @see #get(Class, RemoteInvocationOptions)
      *
-     * @param remoteInterface
-     * @return
+     * @param <T> type of remote service
+     * @param remoteInterface - remote service interface
+     * @return remote service instance
      */
     <T> T get(Class<T> remoteInterface);
 
@@ -115,10 +221,11 @@ public interface RRemoteService {
      * @see RemoteInvocationOptions#defaults()
      * @see #get(Class, RemoteInvocationOptions)
      *
-     * @param remoteInterface
+     * @param <T> type of remote service
+     * @param remoteInterface - remote service interface
      * @param executionTimeout - invocation timeout
-     * @param executionTimeUnit
-     * @return
+     * @param executionTimeUnit - time unit
+     * @return remote service instance
      */
     <T> T get(Class<T> remoteInterface, long executionTimeout, TimeUnit executionTimeUnit);
     
@@ -135,13 +242,14 @@ public interface RRemoteService {
      *
      * @see RemoteInvocationOptions
      * @see #get(Class, RemoteInvocationOptions)
-     *
-     * @param remoteInterface
+     * 
+     * @param <T> type of remote service
+     * @param remoteInterface - remote service interface
      * @param executionTimeout - invocation timeout
-     * @param executionTimeUnit
+     * @param executionTimeUnit - time unit
      * @param ackTimeout - ack timeout
-     * @param ackTimeUnit
-     * @return
+     * @param ackTimeUnit - time unit
+     * @return remote service object
      */
     <T> T get(Class<T> remoteInterface, long executionTimeout, TimeUnit executionTimeUnit, long ackTimeout, TimeUnit ackTimeUnit);
 
@@ -154,6 +262,11 @@ public interface RRemoteService {
      * or else IllegalArgumentException will be thrown.
      *
      * @see RemoteInvocationOptions
+     * 
+     * @param <T> type of remote service
+     * @param remoteInterface - remote service interface
+     * @param options - service options
+     * @return remote service object
      */
     <T> T get(Class<T> remoteInterface, RemoteInvocationOptions options);
 

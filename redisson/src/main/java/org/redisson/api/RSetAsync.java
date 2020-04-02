@@ -1,5 +1,5 @@
 /**
- * Copyright 2016 Nikita Koksharov
+ * Copyright (c) 2013-2020 Nikita Koksharov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,30 +24,47 @@ import java.util.Set;
  *
  * @param <V> value
  */
-public interface RSetAsync<V> extends RCollectionAsync<V> {
+public interface RSetAsync<V> extends RCollectionAsync<V>, RSortableAsync<Set<V>> {
 
+    /**
+     * Removes and returns random elements from set
+     * in async mode
+     * 
+     * @param amount of random values
+     * @return random values
+     */
+    RFuture<Set<V>> removeRandomAsync(int amount);
+    
     /**
      * Removes and returns random element from set
      * in async mode
-     *
-     * @return
+     * 
+     * @return value
      */
     RFuture<V> removeRandomAsync();
 
     /**
      * Returns random element from set
      * in async mode
-     *
-     * @return
+     * 
+     * @return value
      */
     RFuture<V> randomAsync();
+    
+    /**
+     * Returns random elements from set limited by <code>count</code>
+     *
+     * @param count - values amount to return
+     * @return value
+     */
+    RFuture<Set<V>> randomAsync(int count);
 
     /**
      * Move a member from this set to the given destination set in async mode.
      *
      * @param destination the destination set
      * @param member the member to move
-     * @return true if the element is moved, false if the element is not a
+     * @return <code>true</code> if the element is moved, <code>false</code> if the element is not a
      * member of this set or no operation was performed
      */
     RFuture<Boolean> moveAsync(String destination, V member);
@@ -55,7 +72,7 @@ public interface RSetAsync<V> extends RCollectionAsync<V> {
     /**
      * Read all elements at once
      *
-     * @return
+     * @return values
      */
     RFuture<Set<V>> readAllAsync();
 
@@ -63,54 +80,54 @@ public interface RSetAsync<V> extends RCollectionAsync<V> {
      * Union sets specified by name and write to current set.
      * If current set already exists, it is overwritten.
      *
-     * @param names
-     * @return
+     * @param names - name of sets
+     * @return size of union
      */
-    RFuture<Integer> unionAsync(String... keys);
+    RFuture<Integer> unionAsync(String... names);
 
     /**
      * Union sets specified by name with current set.
      * Without current set state change.
      *
-     * @param names
-     * @return
+     * @param names - name of sets
+     * @return values
      */
-    RFuture<Set<V>> readUnionAsync(String... keys);
+    RFuture<Set<V>> readUnionAsync(String... names);
 
     /**
      * Diff sets specified by name and write to current set.
      * If current set already exists, it is overwritten.
      *
-     * @param names
-     * @return
+     * @param names - name of sets
+     * @return size of diff
      */
-    RFuture<Integer> diffAsync(String... keys);
+    RFuture<Integer> diffAsync(String... names);
 
     /**
      * Diff sets specified by name with current set.
      * Without current set state change.
-     *
-     * @param names
-     * @return
+     * 
+     * @param names - name of sets
+     * @return values
      */
-    RFuture<Set<V>> readDiffAsync(String... keys);
+    RFuture<Set<V>> readDiffAsync(String... names);
 
     /**
      * Intersection sets specified by name and write to current set.
      * If current set already exists, it is overwritten.
      *
-     * @param names
-     * @return
+     * @param names - name of sets
+     * @return size of intersection
      */
-    RFuture<Integer> intersectionAsync(String... keys);
+    RFuture<Integer> intersectionAsync(String... names);
 
     /**
      * Intersection sets specified by name with current set.
      * Without current set state change.
-     *
-     * @param names
-     * @return
+     * 
+     * @param names - name of sets
+     * @return values
      */
-    RFuture<Set<V>> readIntersectionAsync(String... keys);
+    RFuture<Set<V>> readIntersectionAsync(String... names);
     
 }

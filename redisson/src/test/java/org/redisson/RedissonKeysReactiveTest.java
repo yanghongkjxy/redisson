@@ -2,26 +2,37 @@ package org.redisson;
 
 import java.util.Iterator;
 
-import org.hamcrest.MatcherAssert;
-import org.hamcrest.Matchers;
+import static org.assertj.core.api.Assertions.*;
 import org.junit.Assert;
 import org.junit.Test;
 import org.redisson.api.RBucketReactive;
+import org.redisson.api.RKeysReactive;
+import org.redisson.api.RKeysRx;
 import org.redisson.api.RMapReactive;
+import reactor.core.publisher.Flux;
 
 public class RedissonKeysReactiveTest extends BaseReactiveTest {
 
     @Test
-    public void testKeysIterablePattern() {
-        redisson.getBucket("test1").set("someValue");
-        redisson.getBucket("test2").set("someValue");
+    public void testGetKeys() {
+        RKeysReactive keys = redisson.getKeys();
+        sync(redisson.getBucket("test1").set(1));
+        sync(redisson.getBucket("test2").set(1));
+        Flux<String> k = keys.getKeys();
+        assertThat(k.toIterable()).contains("test1", "test2");
+    }
 
-        redisson.getBucket("test12").set("someValue");
+    @Test
+    public void testKeysIterablePattern() {
+        sync(redisson.getBucket("test1").set("someValue"));
+        sync(redisson.getBucket("test2").set("someValue"));
+
+        sync(redisson.getBucket("test12").set("someValue"));
 
         Iterator<String> iterator = toIterator(redisson.getKeys().getKeysByPattern("test?"));
         for (; iterator.hasNext();) {
             String key = iterator.next();
-            MatcherAssert.assertThat(key, Matchers.isOneOf("test1", "test2"));
+            assertThat(key).isIn("test1", "test2");
         }
     }
 
@@ -33,7 +44,7 @@ public class RedissonKeysReactiveTest extends BaseReactiveTest {
         RBucketReactive<String> bucket2 = redisson.getBucket("test2");
         sync(bucket2.set("someValue2"));
 
-        MatcherAssert.assertThat(sync(redisson.getKeys().randomKey()), Matchers.isOneOf("test1", "test2"));
+        assertThat(sync(redisson.getKeys().randomKey())).isIn("test1", "test2");
         sync(redisson.getKeys().delete("test1"));
         Assert.assertEquals("test2", sync(redisson.getKeys().randomKey()));
         sync(redisson.getKeys().flushdb());

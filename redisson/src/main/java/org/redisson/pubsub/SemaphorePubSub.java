@@ -1,5 +1,5 @@
 /**
- * Copyright 2016 Nikita Koksharov
+ * Copyright (c) 2013-2020 Nikita Koksharov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,16 @@ package org.redisson.pubsub;
 import org.redisson.RedissonLockEntry;
 import org.redisson.misc.RPromise;
 
+/**
+ * 
+ * @author Nikita Koksharov
+ *
+ */
 public class SemaphorePubSub extends PublishSubscribe<RedissonLockEntry> {
+
+    public SemaphorePubSub(PublishSubscribeService service) {
+        super(service);
+    }
 
     @Override
     protected RedissonLockEntry createEntry(RPromise<RedissonLockEntry> newPromise) {
@@ -27,23 +36,12 @@ public class SemaphorePubSub extends PublishSubscribe<RedissonLockEntry> {
 
     @Override
     protected void onMessage(RedissonLockEntry value, Long message) {
-        value.getLatch().release(message.intValue());
-        
-        synchronized (value) {
-            while (true) {
-                Runnable runnable = value.getListeners().poll();
-                if (runnable != null) {
-                    if (value.getLatch().tryAcquire()) {
-                        runnable.run();
-                    } else {
-                        value.addListener(runnable);
-                        return;
-                    }
-                } else {
-                    return;
-                }
-            }
+        Runnable runnableToExecute = value.getListeners().poll();
+        if (runnableToExecute != null) {
+            runnableToExecute.run();
         }
+        
+        value.getLatch().release(message.intValue());
     }
 
 }

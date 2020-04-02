@@ -1,5 +1,5 @@
 /**
- * Copyright 2016 Nikita Koksharov
+ * Copyright (c) 2013-2020 Nikita Koksharov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,35 +15,36 @@
  */
 package org.redisson.connection;
 
-import java.util.Queue;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.atomic.AtomicInteger;
-
 import org.redisson.api.NodeType;
 import org.redisson.api.RFuture;
-import org.redisson.client.ReconnectListener;
 import org.redisson.client.RedisClient;
 import org.redisson.client.RedisConnection;
 import org.redisson.client.RedisPubSubConnection;
-import org.redisson.config.MasterSlaveServersConfig;
-import org.redisson.misc.RPromise;
+import org.redisson.config.ReadMode;
+import org.redisson.pubsub.AsyncSemaphore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.netty.util.concurrent.Future;
-import io.netty.util.concurrent.FutureListener;
-import io.netty.util.concurrent.Promise;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicLong;
 
+/**
+ * 
+ * @author Nikita Koksharov
+ *
+ */
 public class ClientConnectionsEntry {
 
     final Logger log = LoggerFactory.getLogger(getClass());
 
-    private final Queue<RedisPubSubConnection> allSubscribeConnections = new ConcurrentLinkedQueue<RedisPubSubConnection>();
-    private final Queue<RedisPubSubConnection> freeSubscribeConnections = new ConcurrentLinkedQueue<RedisPubSubConnection>();
-    private final AtomicInteger freeSubscribeConnectionsCounter = new AtomicInteger();
+    private final Queue<RedisPubSubConnection> allSubscribeConnections = new ConcurrentLinkedQueue<>();
+    private final Queue<RedisPubSubConnection> freeSubscribeConnections = new ConcurrentLinkedQueue<>();
+    private final AsyncSemaphore freeSubscribeConnectionsCounter;
 
-    private final Queue<RedisConnection> freeConnections = new ConcurrentLinkedQueue<RedisConnection>();
-    private final AtomicInteger freeConnectionsCounter = new AtomicInteger();
+    private final Queue<RedisConnection> allConnections = new ConcurrentLinkedQueue<>();
+    private final Queue<RedisConnection> freeConnections = new ConcurrentLinkedQueue<>();
+    private final AsyncSemaphore freeConnectionsCounter;
 
     public enum FreezeReason {MANAGER, RECONNECT, SYSTEM}
 
@@ -51,39 +52,57 @@ public class ClientConnectionsEntry {
     private FreezeReason freezeReason;
     final RedisClient client;
 
-    private final NodeType nodeType;
+    private volatile NodeType nodeType;
     private ConnectionManager connectionManager;
 
-    private final AtomicInteger failedAttempts = new AtomicInteger();
+    private final AtomicLong firstFailTime = new AtomicLong(0);
 
     public ClientConnectionsEntry(RedisClient client, int poolMinSize, int poolMaxSize, int subscribePoolMinSize, int subscribePoolMaxSize,
-            ConnectionManager connectionManager, NodeType serverMode) {
+            ConnectionManager connectionManager, NodeType nodeType) {
         this.client = client;
-        this.freeConnectionsCounter.set(poolMaxSize);
+        this.freeConnectionsCounter = new AsyncSemaphore(poolMaxSize);
         this.connectionManager = connectionManager;
-        this.nodeType = serverMode;
-        this.freeSubscribeConnectionsCounter.set(subscribePoolMaxSize);
+        this.nodeType = nodeType;
+        this.freeSubscribeConnectionsCounter = new AsyncSemaphore(subscribePoolMaxSize);
 
         if (subscribePoolMaxSize > 0) {
-            connectionManager.getConnectionWatcher().add(subscribePoolMinSize, subscribePoolMaxSize, freeSubscribeConnections, freeSubscribeConnectionsCounter);
+            connectionManager.getConnectionWatcher().add(subscribePoolMinSize, subscribePoolMaxSize, freeSubscribeConnections, freeSubscribeConnectionsCounter, c -> {
+                freeSubscribeConnections.remove(c);
+                return allSubscribeConnections.remove(c);
+            });
         }
-        connectionManager.getConnectionWatcher().add(poolMinSize, poolMaxSize, freeConnections, freeConnectionsCounter);
+        connectionManager.getConnectionWatcher().add(poolMinSize, poolMaxSize, freeConnections, freeConnectionsCounter, c -> {
+                freeConnections.remove(c);
+                return allConnections.remove(c);
+            });
     }
-
+    
+    public boolean isMasterForRead() {
+        return getFreezeReason() == FreezeReason.SYSTEM
+                        && connectionManager.getConfig().getReadMode() == ReadMode.MASTER_SLAVE
+                            && getNodeType() == NodeType.MASTER;
+    }
+    
+    public void setNodeType(NodeType nodeType) {
+        this.nodeType = nodeType;
+    }
     public NodeType getNodeType() {
         return nodeType;
     }
 
-    public void resetFailedAttempts() {
-        failedAttempts.set(0);
+    public void resetFirstFail() {
+        firstFailTime.set(0);
     }
 
-    public int getFailedAttempts() {
-        return failedAttempts.get();
+    public boolean isFailed() {
+        if (firstFailTime.get() != 0) {
+            return System.currentTimeMillis() - firstFailTime.get() > connectionManager.getConfig().getFailedSlaveCheckInterval(); 
+        }
+        return false;
     }
-
-    public int incFailedAttempts() {
-        return failedAttempts.incrementAndGet();
+    
+    public void trySetupFistFail() {
+        firstFailTime.compareAndSet(0, System.currentTimeMillis());
     }
 
     public RedisClient getClient() {
@@ -105,29 +124,26 @@ public class ClientConnectionsEntry {
     public void setFreezed(boolean freezed) {
         this.freezed = freezed;
     }
+    
+    public void reset() {
+        freeConnectionsCounter.removeListeners();
+        freeSubscribeConnectionsCounter.removeListeners();
+    }
 
     public int getFreeAmount() {
-        return freeConnectionsCounter.get();
+        return freeConnectionsCounter.getCounter();
     }
 
-    private boolean tryAcquire(AtomicInteger counter) {
-        while (true) {
-            int value = counter.get();
-            if (value == 0) {
-                return false;
-            }
-            if (counter.compareAndSet(value, value - 1)) {
-                return true;
-            }
-        }
+    public void acquireConnection(Runnable runnable) {
+        freeConnectionsCounter.acquire(runnable);
     }
-
-    public boolean tryAcquireConnection() {
-        return tryAcquire(freeConnectionsCounter);
+    
+    public void removeConnection(Runnable runnable) {
+        freeConnectionsCounter.remove(runnable);
     }
 
     public void releaseConnection() {
-        freeConnectionsCounter.incrementAndGet();
+        freeConnectionsCounter.release();
     }
 
     public RedisConnection pollConnection() {
@@ -135,84 +151,69 @@ public class ClientConnectionsEntry {
     }
 
     public void releaseConnection(RedisConnection connection) {
+        if (client != connection.getRedisClient()) {
+            connection.closeAsync();
+            return;
+        }
+
         connection.setLastUsageTime(System.currentTimeMillis());
         freeConnections.add(connection);
     }
 
     public RFuture<RedisConnection> connect() {
-        final RPromise<RedisConnection> connectionFuture = connectionManager.newPromise();
         RFuture<RedisConnection> future = client.connectAsync();
-        future.addListener(new FutureListener<RedisConnection>() {
+        future.onComplete((conn, e) -> {
+            if (e != null) {
+                return;
+            }
+            
+            onConnect(conn);
+            log.debug("new connection created: {}", conn);
+            
+            allConnections.add(conn);
+        });
+        return future;
+    }
+    
+    private void onConnect(final RedisConnection conn) {
+        conn.setConnectedListener(new Runnable() {
             @Override
-            public void operationComplete(Future<RedisConnection> future) throws Exception {
-                if (!future.isSuccess()) {
-                    connectionFuture.tryFailure(future.cause());
-                    return;
+            public void run() {
+                if (!connectionManager.isShuttingDown()) {
+                    connectionManager.getConnectionEventsHub().fireConnect(conn.getRedisClient().getAddr());
                 }
-                RedisConnection conn = future.getNow();
-                log.debug("new connection created: {}", conn);
-
-                addReconnectListener(connectionFuture, conn);
             }
-
         });
-        return connectionFuture;
-    }
-
-    private <T extends RedisConnection> void addReconnectListener(RPromise<T> connectionFuture, T conn) {
-        addFireEventListener(conn, connectionFuture);
-
-        conn.setReconnectListener(new ReconnectListener() {
+        conn.setDisconnectedListener(new Runnable() {
             @Override
-            public void onReconnect(RedisConnection conn, RPromise<RedisConnection> connectionFuture) {
-                addFireEventListener(conn, connectionFuture);
+            public void run() {
+                if (!connectionManager.isShuttingDown()) {
+                    connectionManager.getConnectionEventsHub().fireDisconnect(conn.getRedisClient().getAddr());
+                }
             }
         });
-    }
-
-    private <T extends RedisConnection> void addFireEventListener(T conn, RPromise<T> connectionFuture) {
-        connectionManager.getConnectListener().onConnect(connectionFuture, conn, nodeType, connectionManager.getConfig());
         
-        if (connectionFuture.isSuccess()) {
-            connectionManager.getConnectionEventsHub().fireConnect(connectionFuture.getNow().getRedisClient().getAddr());
-            return;
-        }
-
-        connectionFuture.addListener(new FutureListener<T>() {
-            @Override
-            public void operationComplete(Future<T> future) throws Exception {
-                if (future.isSuccess()) {
-                    connectionManager.getConnectionEventsHub().fireConnect(future.getNow().getRedisClient().getAddr());
-                }
-            }
-        });
-    }
-
-    public MasterSlaveServersConfig getConfig() {
-        return connectionManager.getConfig();
+        connectionManager.getConnectionEventsHub().fireConnect(conn.getRedisClient().getAddr());
     }
 
     public RFuture<RedisPubSubConnection> connectPubSub() {
-        final RPromise<RedisPubSubConnection> connectionFuture = connectionManager.newPromise();
         RFuture<RedisPubSubConnection> future = client.connectPubSubAsync();
-        future.addListener(new FutureListener<RedisPubSubConnection>() {
-            @Override
-            public void operationComplete(Future<RedisPubSubConnection> future) throws Exception {
-                if (!future.isSuccess()) {
-                    connectionFuture.tryFailure(future.cause());
-                    return;
-                }
-                
-                RedisPubSubConnection conn = future.getNow();
-                log.debug("new pubsub connection created: {}", conn);
-
-                addReconnectListener(connectionFuture, conn);
-                
-
-                allSubscribeConnections.add(conn);
+        future.onComplete((res, e) -> {
+            if (e != null) {
+                return;
             }
+            
+            RedisPubSubConnection conn = future.getNow();
+            onConnect(conn);
+            log.debug("new pubsub connection created: {}", conn);
+
+            allSubscribeConnections.add(conn);
         });
-        return connectionFuture;
+        return future;
+    }
+    
+    public Queue<RedisConnection> getAllConnections() {
+        return allConnections;
     }
 
     public Queue<RedisPubSubConnection> getAllSubscribeConnections() {
@@ -224,29 +225,28 @@ public class ClientConnectionsEntry {
     }
 
     public void releaseSubscribeConnection(RedisPubSubConnection connection) {
+        if (client != connection.getRedisClient()) {
+            connection.closeAsync();
+            return;
+        }
+        
         connection.setLastUsageTime(System.currentTimeMillis());
         freeSubscribeConnections.add(connection);
     }
 
-    public boolean tryAcquireSubscribeConnection() {
-        return tryAcquire(freeSubscribeConnectionsCounter);
+    public void acquireSubscribeConnection(Runnable runnable) {
+        freeSubscribeConnectionsCounter.acquire(runnable);
     }
 
     public void releaseSubscribeConnection() {
-        freeSubscribeConnectionsCounter.incrementAndGet();
+        freeSubscribeConnectionsCounter.release();
     }
 
-    public boolean freezeMaster(FreezeReason reason) {
+    public void freezeMaster(FreezeReason reason) {
         synchronized (this) {
             setFreezed(true);
-            // only RECONNECT freeze reason could be replaced
-            if (getFreezeReason() == null
-                    || getFreezeReason() == FreezeReason.RECONNECT) {
-                setFreezeReason(reason);
-                return true;
-            }
+            setFreezeReason(reason);
         }
-        return false;
     }
 
     @Override
@@ -255,7 +255,7 @@ public class ClientConnectionsEntry {
                 + ", freeSubscribeConnectionsCounter=" + freeSubscribeConnectionsCounter
                 + ", freeConnectionsAmount=" + freeConnections.size() + ", freeConnectionsCounter="
                 + freeConnectionsCounter + ", freezed=" + freezed + ", freezeReason=" + freezeReason
-                + ", client=" + client + ", nodeType=" + nodeType + ", failedAttempts=" + failedAttempts
+                + ", client=" + client + ", nodeType=" + nodeType + ", firstFail=" + firstFailTime
                 + "]";
     }
 

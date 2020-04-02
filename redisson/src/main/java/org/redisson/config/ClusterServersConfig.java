@@ -1,5 +1,5 @@
 /**
- * Copyright 2016 Nikita Koksharov
+ * Copyright (c) 2013-2020 Nikita Koksharov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,23 +15,35 @@
  */
 package org.redisson.config;
 
-import java.net.URI;
+import org.redisson.api.HostNatMapper;
+import org.redisson.api.HostPortNatMapper;
+import org.redisson.api.NatMapper;
+
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
-import org.redisson.misc.URIBuilder;
-
+/**
+ * 
+ * @author Nikita Koksharov
+ *
+ */
 public class ClusterServersConfig extends BaseMasterSlaveServersConfig<ClusterServersConfig> {
 
+    private NatMapper natMapper = NatMapper.direct();
+    
     /**
      * Redis cluster node urls list
      */
-    private List<URI> nodeAddresses = new ArrayList<URI>();
+    private List<String> nodeAddresses = new ArrayList<>();
 
     /**
      * Redis cluster scan interval in milliseconds
      */
-    private int scanInterval = 1000;
+    private int scanInterval = 5000;
+
+    private boolean checkSlotsCoverage = true;
 
     public ClusterServersConfig() {
     }
@@ -40,24 +52,24 @@ public class ClusterServersConfig extends BaseMasterSlaveServersConfig<ClusterSe
         super(config);
         setNodeAddresses(config.getNodeAddresses());
         setScanInterval(config.getScanInterval());
+        setNatMapper(config.getNatMapper());
+        setCheckSlotsCoverage(config.isCheckSlotsCoverage());
     }
 
     /**
      * Add Redis cluster node address. Use follow format -- <code>host:port</code>
      *
      * @param addresses in <code>host:port</code> format
-     * @return
+     * @return config
      */
-    public ClusterServersConfig addNodeAddress(String ... addresses) {
-        for (String address : addresses) {
-            nodeAddresses.add(URIBuilder.create(address));
-        }
+    public ClusterServersConfig addNodeAddress(String... addresses) {
+        nodeAddresses.addAll(Arrays.asList(addresses));
         return this;
     }
-    public List<URI> getNodeAddresses() {
+    public List<String> getNodeAddresses() {
         return nodeAddresses;
     }
-    void setNodeAddresses(List<URI> nodeAddresses) {
+    void setNodeAddresses(List<String> nodeAddresses) {
         this.nodeAddresses = nodeAddresses;
     }
 
@@ -66,13 +78,63 @@ public class ClusterServersConfig extends BaseMasterSlaveServersConfig<ClusterSe
     }
     /**
      * Redis cluster scan interval in milliseconds
+     * <p>
+     * Default is <code>5000</code>
      *
      * @param scanInterval in milliseconds
-     * @return
+     * @return config
      */
     public ClusterServersConfig setScanInterval(int scanInterval) {
         this.scanInterval = scanInterval;
         return this;
     }
+
+    public boolean isCheckSlotsCoverage() {
+        return checkSlotsCoverage;
+    }
+
+    /**
+     * Enables cluster slots check during Redisson startup.
+     * <p>
+     * Default is <code>true</code>
+     *
+     * @param checkSlotsCoverage - boolean value
+     * @return config
+     */
+    public ClusterServersConfig setCheckSlotsCoverage(boolean checkSlotsCoverage) {
+        this.checkSlotsCoverage = checkSlotsCoverage;
+        return this;
+    }
+
+    /*
+     * Use {@link #setNatMapper(NatMapper)}
+     */
+    @Deprecated
+    public ClusterServersConfig setNatMap(Map<String, String> natMap) {
+        HostPortNatMapper mapper = new HostPortNatMapper();
+        mapper.setHostsPortMap(natMap);
+        this.natMapper = mapper;
+        return this;
+    }
+
+    public NatMapper getNatMapper() {
+        return natMapper;
+    }
+
+    /**
+     * Defines NAT mapper which maps Redis URI object.
+     * Applied to all Redis connections.
+     *
+     * @see HostNatMapper
+     * @see HostPortNatMapper
+     *
+     * @param natMapper - nat mapper object
+     * @return config
+     */
+    public ClusterServersConfig setNatMapper(NatMapper natMapper) {
+        this.natMapper = natMapper;
+        return this;
+    }
+    
 
 }

@@ -1,5 +1,5 @@
 /**
- * Copyright 2016 Nikita Koksharov
+ * Copyright (c) 2013-2020 Nikita Koksharov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,8 +25,8 @@ import java.util.Set;
  * This is not a concurrent map.
  * 
  * @author Rui Gu (https://github.com/jackygurui)
- * @param <K>
- * @param <V>
+ * @param <K> key
+ * @param <V> value
  */
 public class BiHashMap<K, V> implements Map<K, V> {
 

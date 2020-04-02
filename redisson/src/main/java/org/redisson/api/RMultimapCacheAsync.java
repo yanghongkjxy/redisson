@@ -1,5 +1,5 @@
 /**
- * Copyright 2016 Nikita Koksharov
+ * Copyright (c) 2013-2020 Nikita Koksharov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,13 +17,21 @@ package org.redisson.api;
 
 import java.util.concurrent.TimeUnit;
 
+/**
+ * Base asynchronous Multimap interface. Allows to map multiple values per key and define expiration per key.
+ *
+ * @author Nikita Koksharov
+ *
+ * @param <K> key type
+ * @param <V> value type
+ */
 public interface RMultimapCacheAsync<K, V> extends RMultimapAsync<K, V> {
 
     /**
      * Set a timeout for key in async mode. After the timeout has expired,
      * the key and its values will automatically be deleted.
      * 
-     * @param key
+     * @param key - map key
      * @param timeToLive - timeout before key will be deleted
      * @param timeUnit - timeout time unit
      * @return <code>true</code> if key exists and the timeout was set and <code>false</code> if key not exists
